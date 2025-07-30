@@ -1,0 +1,8 @@
+
+print("---BOOT SCRIPT---");
+print("Reading config...");
+
+conf = fileread("/shz_config.txt");
+
+print("config:");
+print(conf);
