@@ -1,3 +1,52 @@
 
+print("---UPDATE CHECK---");
+check_updates()
+{
+	//Boot script, executed before any network stuff is initialized
+	auto_update_path    = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/boot.shs";
+	auto_update_local   = "/boot.shs";
+
+	//App loader script, handles automatic updates and runs the main script
+	auto_update_path2    = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/app_loader.shs";
+	auto_update_local2   = "/app_loader.shs";
+	
+	version_file_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/version.txt";
+	version_file_local = "/version.txt";
+	version_file_local2 = "/version_new.txt";
+	download_git(version_file_path, version_file_local2);
+
+	old_version = string(fileread(version_file_local));
+	new_version = string(fileread(version_file_local2));
+	
+	if(!new_version:empty_str())
+	{
+		if(old_version == new_version)
+		{
+			print("Firmware is up to date (" + old_version + ")");
+			return;
+		}
+		
+		print("Updating version " + old_version + " to version " + new_version);
+		if(!download_git(auto_update_path, auto_update_local))
+			error("Cannot update: " + auto_update_local);
+			return;
+		if(!download_git(auto_update_path2, auto_update_local2))
+			error("Cannot update: " + auto_update_local2);
+			return;
+		
+		print("Update successful.");
+		filewrite(version_file_local, new_version);
+	}
+	else
+	{
+		error("Cannot fetch new version!");
+	}
+}
+
+//Check if we have internet for 5 seconds, if so, check for updates
+print("Check for updates...");
+if(has_internet(5000))
+	check_updates();
+
 print("---LOADING APP---");
 
