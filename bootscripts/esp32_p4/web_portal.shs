@@ -1,4 +1,7 @@
 
+print("WEB PORTAL CODE DISABLED!");
+return;
+
 all_files = [
 	header_chunk = "header_chunk.html",
 	section_start = "section_start.html",
@@ -46,10 +49,10 @@ ws.on("/",()
     print("website requested!");
 	
 	str = render("header_chunk", 0);
-	str += render("section_start");
-	str += render("control_slider");
-	str += render("section_end");
-	str += render("footer_chunk");
+	str += render("section_start", [section_title="Test section"]);
+	str += render("control_slider", 0);
+	str += render("section_end", 0);
+	str += render("footer_chunk", 0);
 	
 	ws.send(200, "text/html", str);
 });
