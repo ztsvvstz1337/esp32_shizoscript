@@ -1,15 +1,87 @@
 
 print("---UPDATE CHECK---");
+
+all_files = [
+	"boot.shs",
+	"app_loader.shs",
+	"web_portal.shs",
+	"header_chunk.html",
+	"section_start.html",
+	"control_slider.html",
+	"control_text.html",
+	"control_checkbox.html",
+	"control_color.html",
+	"section_end.html",
+	"footer_chunk.html",
+];
+
+remote_download(file_name, is_tmp)
+{
+	auto_update_path    = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/" + file_name;
+	auto_update_local   = "/";
+	if(is_tmp)
+		auto_update_local += "tmp_";
+	auto_update_local += file_name;
+
+	print("Downloading: " + file_name);
+	if(!download_git(auto_update_path, auto_update_local))
+		error("Cannot download: " + auto_update_local);
+		return 0;
+	else 
+		print("Successfully downloaded file.");
+		return 1;
+	return 0;
+}
+
+remote_download_safe(file_name, is_tmp)
+{
+	for(i = 0; i < 3; i++)
+	{
+		if(remote_download(file_name, is_tmp))
+			return 1;
+	}
+	
+	return 0;
+}
+
+cleanup_files()
+{
+	for(it :: all_files)
+	{
+		fileremove("/tmp_" + it);
+		print("Cleaned: " + "/tmp_" + it);
+	}
+}
+
+download_all()
+{
+	cleanup_files();
+	
+	//First try to download ALL files, if one fails, do not continue.
+	for(it :: all_files)
+	{
+		if(!remote_download_safe(it, 1))
+			print("Cannot download file! Aborting...");
+			return 0;
+	}
+	
+	//Now replace tmp file with real files...
+	for(it :: all_files)
+	{
+		print("updating: " + it);
+		tmp = fileread("/tmp_" + it);
+		filewrite(it, tmp);
+		print("updated.");
+	}
+	
+	//Clean up once more
+	cleanup_files();
+	
+	return 1;
+}
+
 check_updates()
 {
-	//Boot script, executed before any network stuff is initialized
-	auto_update_path    = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/boot.shs";
-	auto_update_local   = "/boot.shs";
-
-	//App loader script, handles automatic updates and runs the main script
-	auto_update_path2    = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/app_loader.shs";
-	auto_update_local2   = "/app_loader.shs";
-	
 	version_file_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/version.txt";
 	version_file_local = "/version.txt";
 	version_file_local2 = "/version_new.txt";
@@ -27,17 +99,14 @@ check_updates()
 		}
 		
 		print("Updating version " + old_version + " to version " + new_version);
-		if(!download_git(auto_update_path, auto_update_local))
-			error("Cannot update: " + auto_update_local);
-			return;
-		if(!download_git(auto_update_path2, auto_update_local2))
-			error("Cannot update: " + auto_update_local2);
-			return;
 		
-		print("Update successful.");
-		print("Rebooting...");
-		filewrite(version_file_local, new_version);
-		esp_restart();
+		if(download_all())		
+			print("Update successful.");
+			print("Rebooting...");
+			filewrite(version_file_local, new_version);
+			esp_restart();
+		else
+			print("Update failed, continuing...");
 	}
 	else
 	{
@@ -61,6 +130,11 @@ read_crash()
 {
 	return int(string(fileread("/crash_state.txt")));
 }
+
+web_portal_script = string(fileread("/web_portal.shs"));
+if(!web_portal_script:empty_str())
+	print("Loading webportal...");
+	web_portal = loadmodule(web_portal_script, 0, 1);
 
 local_script = string(fileread("/app.shs"));
 print("Size: " + local_script:count());

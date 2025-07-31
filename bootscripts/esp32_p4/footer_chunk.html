@@ -1,0 +1,15 @@
+</div>
+<footer>
+  <a href="https://shizotech.com" target="_blank">shizotech.com</a>
+</footer>
+<script>
+  function updateSliderValue(slider) {
+    const display = document.getElementById(slider.id + "Value");
+    if (display) display.textContent = slider.value;
+  }
+  function sendUpdate(id, value) {
+    fetch(`/${id}?value=${encodeURIComponent(value)}`).catch(err => console.error(err));
+  }
+</script>
+</body>
+</html>

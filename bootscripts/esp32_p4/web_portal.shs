@@ -1,0 +1,32 @@
+
+print("web_portal(): init webserver...");
+ws = webserver();
+
+ws.on("/",()
+{
+    print("website requested!");
+	
+	str = "<!DOCTYPE html> <html>";
+	  str += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">";
+	  str += "<style>";
+	  str += "body {font-family: Arial, sans-serif; color: #444; text-align: center;}";
+	  str += ".title {font-size: 30px; font-weight: bold; letter-spacing: 2px; margin: 80px 0 55px;}";
+	  str += ".temperature {font-size: 80px; font-weight: 300; line-height: 1; margin-bottom: 40px; color: #4285f4;}";
+	  str += ".unit {font-size: 28px; vertical-align: top;}";
+	  str += "</style>";
+	  str += "</head>";
+	  str += "<body>";
+	  str += "<div id=\"temperature-container\">";
+	  str += "<h1 class=\"title\">TEMPERATURE</h1>";
+	  str += "<div class=\"temperature celsius\">";
+	  str += "<span class=\"unit\">°C</span></div>";
+	  str += "<div class=\"temperature fahrenheit\">";
+	  str += "<span class=\"unit\">°F</span></div>";
+	  str += "</div>";
+	  str += "</body>";
+	  str += "</html>";
+	
+	ws.send(200, "text/html", str);
+});
+
+print("web_portal(): active");
