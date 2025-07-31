@@ -23,6 +23,19 @@ load_chunks()
 	print("loaded.");
 }
 
+render(chunk_name, options)
+{
+	str = chunks[chunk_name];
+	for(i = 0; i < options:count(); i++)
+	{
+		r1 = options:key(i);
+		r2 = options[i];
+		
+		str = str:replace("{{" + r1 + "}}", r2);
+	}
+	
+	return str;
+}
 
 print("web_portal(): init webserver...");
 
@@ -32,7 +45,11 @@ ws.on("/",()
 {
     print("website requested!");
 	
-	
+	str = render("header_chunk", 0);
+	str += render("section_start");
+	str += render("control_slider");
+	str += render("section_end");
+	str += render("footer_chunk");
 	
 	ws.send(200, "text/html", str);
 });
