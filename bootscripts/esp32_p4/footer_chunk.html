@@ -7,8 +7,13 @@
     const display = document.getElementById(slider.id + "Value");
     if (display) display.textContent = slider.value;
   }
+
   function sendUpdate(id, value) {
-    fetch(`/${id}?value=${encodeURIComponent(value)}`).catch(err => console.error(err));
+    fetch("/" + id, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "value=" + encodeURIComponent(value)
+    }).catch(err => console.error(err));
   }
 </script>
 </body>

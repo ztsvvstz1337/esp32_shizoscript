@@ -1,5 +1,4 @@
-
-print("STILL DISABLED");
+print("DISABLED");
 return;
 
 all_files = [
