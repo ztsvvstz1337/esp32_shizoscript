@@ -1,7 +1,7 @@
 
 print("---BOOT SCRIPT---");
 
-default_conf = [
+global default_conf = [
 	name 		= "esp32_p4",
 	password 	= "admin",
 	ip 			= "2.0.0.10",
@@ -22,3 +22,24 @@ load_config();
 
 print("---CONFIG---");
 print(default_conf);
+
+if(!esp32_conf_name(default_conf.name))
+	error("Cannot set property!");
+if(!esp32_conf_password(default_conf.password))
+	error("Cannot set property!");
+if(!esp32_conf_ip(default_conf.ip))
+	error("Cannot set property!");
+if(!esp32_conf_gateway(default_conf.gateway))
+	error("Cannot set property!");
+if(!esp32_conf_netmask(default_conf.netmask))
+	error("Cannot set property!");
+
+load_wlans()
+{
+	for(it :: default_conf.wlans)
+	{
+		esp32_conf_add_wlan(it.ssid, it.password);
+	}
+}
+
+load_wlans();
