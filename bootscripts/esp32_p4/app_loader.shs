@@ -62,14 +62,6 @@ read_crash()
 	return int(string(fileread("/crash_state.txt")));
 }
 
-//After 30 seconds, consider the script "stable" and reset the crash counter...
-evaluate_thread()
-{
-	sleep(1000 * 30);
-	print("script stable, resetting crash counter.");
-	write_crash(0);
-}
-
 local_script = string(fileread("/app.shs"));
 print("Size: " + local_script:count());
 
@@ -91,10 +83,14 @@ if(!local_script:empty_str())
 	}
 	
 	write_crash(last_state+1);
-	
-	~evaluate_thread();
-	
+		
 	main_app = loadmodule(local_script, 0, 1);
+	
+	//After 30 seconds, consider the script "stable" and reset the crash counter...
+	print("script evaluator(): init");
+	sleep(1000 * 30);
+	print("script evaluator(): script stable, resetting crash counter.");
+	write_crash(0);
 }
 
 if(main_app == 0)
