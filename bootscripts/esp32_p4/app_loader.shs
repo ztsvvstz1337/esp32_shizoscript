@@ -135,6 +135,8 @@ web_portal_script = string(fileread("/web_portal.shs"));
 if(!web_portal_script:empty_str())
 	print("Loading webportal...");
 	web_portal = loadmodule(web_portal_script, 0, 1);
+else
+	print("No webportal found!");
 
 local_script = string(fileread("/app.shs"));
 print("Size: " + local_script:count());
