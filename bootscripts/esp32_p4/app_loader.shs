@@ -37,7 +37,6 @@ check_updates()
 		print("Update successful.");
 		print("Rebooting...");
 		filewrite(version_file_local, new_version);
-		delay(100);
 		esp_restart();
 	}
 	else
@@ -52,13 +51,53 @@ if(has_internet(5000))
 	check_updates();
 
 print("---LOADING APP---");
+
+//Simple counter to check how often we restarted within a 30 second window...
+write_crash(status)
+{
+	filewrite("/crash_state.txt", string(status));
+}
+read_crash()
+{
+	return int(string(fileread("/crash_state.txt")));
+}
+
+//After 30 seconds, consider the script "stable" and reset the crash counter...
+evaluate_thread()
+{
+	sleep(1000 * 30);
+	print("script stable, resetting crash counter.");
+	write_crash(0);
+}
+
 local_script = string(fileread("/app.shs"));
 print("Size: " + local_script:count());
+
+main_app = 0;
+
 if(!local_script:empty_str())
 {
-	mod = loadmodule(local_script, 0, 1);
+	last_state = read_state();
+	
+	if(last_state == 10)
+	{
+		print("app scripted crashed too often, disabling it for now (reset to restart).");
+		write_crash(0);
+		return;
+	}
+	else(last_state > 0)
+	{
+		print("app crashed " + last_state + " times.");
+	}
+	
+	write_crash(last_state+1);
+	
+	~evaluate_thread();
+	
+	main_app = loadmodule(local_script, 0, 1);
 }
-else
+
+if(main_app == 0)
 {
-	error("No app loaded!");
+	print("No app loaded!");
 }
