@@ -58,3 +58,7 @@ if(!local_script:empty_str())
 {
 	mod = loadmodule(local_script, 1, 1);
 }
+else
+{
+	error("No app loaded!");
+}
