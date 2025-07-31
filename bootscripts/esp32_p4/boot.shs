@@ -1,7 +1,7 @@
 
 print("---BOOT SCRIPT---");
 
-global default_conf = [
+global default_config = [
 	name 		= "esp32_p4",
 	password 	= "admin",
 	ip 			= "2.0.0.10",
@@ -11,32 +11,40 @@ global default_conf = [
 
 load_config()
 {
-	conf = fileread("/shz_config.txt");
+	conf_str = string(fileread("/config.txt"));
+	conf = from_json_string(conf_str);
 	for(i = 0; i < conf:count(); i++)
 	{
 		current_key = conf:key(i);
-		default_conf[current_key] = conf[i];
+		default_config[current_key] = conf[i];
 	}
 }
+
+global save_config()
+{
+	print("Saving config...");
+	filewrite("/config.txt", to_json_string(default_config));
+}
+
 load_config();
 
 print("---CONFIG---");
-print(default_conf);
+print(default_config);
 
-if(!esp32_conf_name(default_conf.name))
+if(!esp32_conf_name(default_config.name))
 	error("Cannot set property!");
-if(!esp32_conf_password(default_conf.password))
+if(!esp32_conf_password(default_config.password))
 	error("Cannot set property!");
-if(!esp32_conf_ip(default_conf.ip))
+if(!esp32_conf_ip(default_config.ip))
 	error("Cannot set property!");
-if(!esp32_conf_gateway(default_conf.gateway))
+if(!esp32_conf_gateway(default_config.gateway))
 	error("Cannot set property!");
-if(!esp32_conf_netmask(default_conf.netmask))
+if(!esp32_conf_netmask(default_config.netmask))
 	error("Cannot set property!");
 
 load_wlans()
 {
-	for(it :: default_conf.wlans)
+	for(it :: default_config.wlans)
 	{
 		esp32_conf_add_wlan(it.ssid, it.password);
 	}

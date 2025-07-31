@@ -1,4 +1,4 @@
-print("DISABLED");
+
 return;
 
 all_files = [
@@ -14,6 +14,10 @@ all_files = [
 
 chunks = 0;
 
+print("web_portal(): init webserver...");
+
+ws = webserver();
+
 load_chunks()
 {
 	print("Loading webportal templates...");
@@ -24,6 +28,7 @@ load_chunks()
 	}
 	print("loaded.");
 }
+
 load_chunks();
 
 render(chunk_name, options)
@@ -40,21 +45,84 @@ render(chunk_name, options)
 	return str;
 }
 
-print("web_portal(): init webserver...");
+closed_last_section = 1;
 
-ws = webserver();
+add_start()
+{
+	return render("header_chunk", 0);
+}
+add_end()
+{
+	return render("footer_chunk", 0);
+}
+
+add_section(title)
+{
+	str = "";
+	if(!closed_last_section)
+		str += render("section_end", 0);
+	if(!title:empty_str())
+		str += render("section_start", [section_title = title]);
+		closed_last_section = 0;
+	return str;
+}
+
+add_ctrl(type, name, cb, options)
+{
+	id = name:removecharsexcept("abcdefghijklmnopqrstuvwqyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") + "ID";
+	
+	options.id = id;
+	options.name = name;
+	
+	str = render("control_" + type, options);	
+	
+	ws.post("/"+id, [cb](post_data)
+	{
+		cb(post_data);
+		ws.send(200, "text/html", "success");
+	});
+	
+	return str;
+}
+
+add_slider(name, cb, minv, maxv, defaultv)
+{
+	options = [min=minv, max=maxv, value=defaultv];
+	
+	id = name:removecharsexcept("abcdefghijklmnopqrstuvwqyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") + "ID";
+	
+	if(default_config:has_key(id))
+		options.value = default_config[id];
+	
+	cb2 = [cb, id](post_data)
+	{
+		cb(post_data);
+		default_config[id] = post_data.value;
+		save_config();
+	};
+	
+	return add_ctrl("slider", name, cb2, options);
+}
 
 ws.on("/",()
 {
     print("website requested!");
 	
-	str = render("header_chunk", 0);
-	str += render("section_start", [section_title="Test section"]);
-	str += render("control_slider", [id="slid1", name="Slider One", min=0, max=1, value=0.5]);
-	str += render("section_end", 0);
-	str += render("footer_chunk", 0);
+	page = add_start();
+	page += add_section("Test Section 1");
+
+	page += add_slider("Slider 1", (post_data)
+	{
+		print("CTRL UPDATE!");
+		print(post_data);
+	}, 0, 255, 127);
 	
-	ws.send(200, "text/html", str);
+	page += add_section("Test Section 2");
+	
+	page += add_section("");
+	page += add_end();
+	
+	ws.send(200, "text/html", page);
 });
 
 print("web_portal(): active");
