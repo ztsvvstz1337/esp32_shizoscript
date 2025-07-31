@@ -35,7 +35,10 @@ check_updates()
 			return;
 		
 		print("Update successful.");
+		print("Rebooting...");
 		filewrite(version_file_local, new_version);
+		delay(100);
+		esp_restart();
 	}
 	else
 	{
@@ -49,4 +52,9 @@ if(has_internet(5000))
 	check_updates();
 
 print("---LOADING APP---");
-
+local_script = string(fileread("/app.shs"));
+print("Size: " + local_script:count());
+if(!local_script:empty_str())
+{
+	mod = loadmodule(local_script, 1, 1);
+}
