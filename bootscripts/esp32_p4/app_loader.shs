@@ -77,7 +77,7 @@ main_app = 0;
 
 if(!local_script:empty_str())
 {
-	last_state = read_state();
+	last_state = read_crash();
 	
 	if(last_state == 10)
 	{
