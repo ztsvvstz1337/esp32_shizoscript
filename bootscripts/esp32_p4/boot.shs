@@ -1,8 +1,24 @@
 
 print("---BOOT SCRIPT---");
-print("Reading config...");
 
-conf = fileread("/shz_config.txt");
+default_conf = [
+	name 		= "esp32_p4",
+	password 	= "admin",
+	ip 			= "2.0.0.10",
+	gateway 	= "2.0.0.1",
+	netmask 	= "255.255.255.0"
+];
 
-print("config:");
-print(conf);
+load_config()
+{
+	conf = fileread("/shz_config.txt");
+	for(i = 0; i < conf:count(); i++)
+	{
+		current_key = conf:key(i);
+		default_conf[current_key] = conf[i];
+	}
+}
+load_config();
+
+print("---CONFIG---");
+print(default_conf);
