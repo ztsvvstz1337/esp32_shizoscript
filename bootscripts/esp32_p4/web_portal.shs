@@ -1,5 +1,5 @@
 
-print("WEB PORTAL CODE DISABLED!");
+print("STILL DISABLED");
 return;
 
 all_files = [
@@ -25,6 +25,7 @@ load_chunks()
 	}
 	print("loaded.");
 }
+load_chunks();
 
 render(chunk_name, options)
 {
@@ -50,7 +51,7 @@ ws.on("/",()
 	
 	str = render("header_chunk", 0);
 	str += render("section_start", [section_title="Test section"]);
-	str += render("control_slider", 0);
+	str += render("control_slider", [id="slid1", name="Slider One", min=0, max=1, value=0.5]);
 	str += render("section_end", 0);
 	str += render("footer_chunk", 0);
 	
