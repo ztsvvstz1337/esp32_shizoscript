@@ -151,6 +151,27 @@ add_text(name, cb, defaultv)
 	return add_ctrl("text", name, cb2, options);
 }
 
+add_checkbox(name, cb, defaultv)
+{
+	options = [checked=defaultv];
+	
+	id = get_id(name);
+	
+	if(default_config:has_key(id))
+		options.checked = default_config[id];
+	
+	cb2 = [id](post_data)
+	{
+		print("updating: " + id);
+		default_config[id] = post_data.value;
+		config_update = 1;
+	};
+	
+	if(cb:is_function())
+		cb2 = cb;
+	
+	return add_ctrl("checkbox", name, cb2, options);
+}
 
 ws.on("/settings",()
 {
@@ -167,21 +188,35 @@ ws.on("/settings",()
 	
 	page += add_section("Remote WLANs");
 	
-	page += add_text("WLAN 1 SSID", (post_data)
+	add_wlan_option(numid)
 	{
-		print("updating: wlan1");
-		default_config.wlans[0].ssid = post_data.value;
+		page += add_text("WLAN " + (numid+1) + " SSID", [numid](post_data)
+		{
+			print("updating: wlan" + numid);
+			default_config.wlans[numid].ssid = post_data.value;
+			config_update = 1;
+		}, "");
+		page += add_text("WLAN " + (numid+1) + " Password", [numid](post_data)
+		{
+			print("updating: wlan" + numid + " pw");
+			default_config.wlans[numid].password = post_data.value;
+			config_update = 1;
+		}, "");
+	}
+	
+	for(i = 0; i < 6; i++)
+	{
+		add_wlan_option(i);
+	}
+	
+	page += add_section("System");
+	
+	page += add_checkbox("Debug", (post_data)
+	{
+		print("updating: debug");
+		default_config["debug"] = post_data.value;
 		config_update = 1;
-	}, "");
-	
-	
-	page += add_slider("Slider 1", (post_data)
-	{
-		print("CTRL UPDATE!");
-		print(post_data);
-	}, 0, 255, 127);
-	
-	page += add_section("Test Section 2");
+	}, 0);
 	
 	page += add_section("");
 	page += add_end();
