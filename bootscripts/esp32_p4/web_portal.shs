@@ -1,4 +1,6 @@
 
+return;
+
 all_files = [
 	header_chunk = "header_chunk.html",
 	section_start = "section_start.html",
