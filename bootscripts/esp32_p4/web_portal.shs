@@ -11,6 +11,7 @@ all_files = [
 	section_end = "section_end.html",
 	footer_chunk = "footer_chunk.html",
 	section_presets = "section_presets.html",
+	status_block = "status_block.html",
 ];
 
 chunks = 0;
@@ -196,18 +197,25 @@ ws.on("/settings",()
 	
 	add_wlan_option(numid)
 	{
+		def_ssid = default_config.wlans[numid].ssid;
+		if(def_ssid:empty_str())
+			def_ssid = "";
+		def_pw = default_config.wlans[numid].password;
+		if(def_pw:empty_str())
+			def_pw = "";
+		
 		page += add_text("WLAN " + (numid+1) + " SSID", [numid](post_data)
 		{
 			print("updating: wlan" + numid);
 			default_config.wlans[numid].ssid = post_data.value;
 			config_update = 1;
-		}, "");
+		}, def_ssid);
 		page += add_text("WLAN " + (numid+1) + " Password", [numid](post_data)
 		{
 			print("updating: wlan" + numid + " pw");
 			default_config.wlans[numid].password = post_data.value;
 			config_update = 1;
-		}, "");
+		}, def_pw);
 	}
 	
 	for(i = 0; i < 6; i++)
