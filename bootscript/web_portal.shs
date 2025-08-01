@@ -1,4 +1,12 @@
 
+//Some definitions....
+
+header_buttons = [
+	"HOME" = "/",
+	"SETTINGS" = "/settings",
+	"CONSOLE" = "/console"
+];
+
 all_files = [
 	header_chunk = "header_chunk.html",
 	section_start = "section_start.html",
@@ -12,6 +20,8 @@ all_files = [
 	status_block = "status_block.html",
 	ai_setup = "ai_setup.html",
 ];
+
+//Loading stuff...
 
 chunks = 0;
 
@@ -47,6 +57,18 @@ update_config_thread()
 }
 ~update_config_thread();
 
+
+net = shizonet_client();
+
+get_id(name)
+{
+	id = name:lowercase();
+	id = id:removecharsexcept("abcdefghijklmnopqrstuvwqyz0123456789");
+	return id;
+}
+
+//HTML template render functions...
+
 render(chunk_name, options)
 {
 	str = chunks[chunk_name];
@@ -61,26 +83,23 @@ render(chunk_name, options)
 	return str;
 }
 
-net = shizonet_client();
-
-closed_last_section = 1;
-
-get_id(name)
-{
-	id = name:lowercase();
-	id = id:removecharsexcept("abcdefghijklmnopqrstuvwqyz0123456789");
-	return id;
-}
-
 add_start()
 {
-	return render("header_chunk", [device_name=default_config.name]);
+	btns_str = "";
+	for(i = 0; i < header_buttons:count(); i++)
+	{
+		//<a href="/settings">SETTINGS</a>
+		btns_str += "<a href=" + qt() + header_buttons[i] + qt() + ">" + header_buttons:key(i) + "</a>\n";
+	}
+	return render("header_chunk", [device_name=default_config.name, buttons=btns_str]);
 }
+
 add_end()
 {
 	return render("footer_chunk", 0);
 }
 
+closed_last_section = 1;
 add_section(title)
 {
 	str = "";
@@ -187,9 +206,7 @@ add_checkbox(name, cb, defaultv)
 }
 
 ws.on("/settings",()
-{
-    print("website requested!");
-	
+{	
 	page = add_start();
 	
 	page += add_section("Local Network Settings");
@@ -243,17 +260,6 @@ ws.on("/settings",()
 	ws.send(200, "text/html", page);
 });
 
-ws.on("/ai",()
-{
-	page = add_start();
-	
-	page += add_presets();
-	page += render("ai_setup", 0);
-	page += add_end();
-	
-	ws.send(200, "text/html", page);
-});
-
 ws.on("/",()
 {
 	page = add_start();
@@ -265,13 +271,6 @@ ws.on("/",()
 	page += add_section("");
 	page += add_end();
 	ws.send(200, "text/html", page);
-});
-
-ws.post_data("/upload-voice", (buffer)
-{
-	print("Audio data: " + buffer:count());
-
-	ws.send(200, "text/html", "success");
 });
 
 print("web_portal(): active");
