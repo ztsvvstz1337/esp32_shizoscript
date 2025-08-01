@@ -116,14 +116,15 @@ add_slider(name, cb, minv, maxv, defaultv)
 	if(default_config:has_key(id))
 		options.value = default_config[id];
 	
-	cb2 = [cb, id](post_data)
+	cb2 = [id](post_data)
 	{
 		print("updating: " + id);
-		if(cb:is_function())
-			cb(post_data);
 		default_config[id] = post_data.value;
 		config_update = 1;
 	};
+	
+	if(cb:is_function())
+		cb2 = cb;
 	
 	return add_ctrl("slider", name, cb2, options);
 }
@@ -137,20 +138,21 @@ add_text(name, cb, defaultv)
 	if(default_config:has_key(id))
 		options.value = default_config[id];
 	
-	cb2 = [cb, id](post_data)
+	cb2 = [id](post_data)
 	{
 		print("updating: " + id);
-		if(cb:is_function())
-			cb(post_data);
 		default_config[id] = post_data.value;
 		config_update = 1;
 	};
+	
+	if(cb:is_function())
+		cb2 = cb;
 	
 	return add_ctrl("text", name, cb2, options);
 }
 
 
-ws.on("/",()
+ws.on("/settings",()
 {
     print("website requested!");
 	
@@ -165,6 +167,14 @@ ws.on("/",()
 	
 	page += add_section("Remote WLANs");
 	
+	page += add_text("WLAN 1 SSID", (post_data)
+	{
+		print("updating: wlan1");
+		default_config.wlans[0].ssid = post_data.value;
+		config_update = 1;
+	}, "");
+	
+	
 	page += add_slider("Slider 1", (post_data)
 	{
 		print("CTRL UPDATE!");
@@ -177,6 +187,11 @@ ws.on("/",()
 	page += add_end();
 	
 	ws.send(200, "text/html", page);
+});
+
+ws.on("/",()
+{
+	
 });
 
 print("web_portal(): active");

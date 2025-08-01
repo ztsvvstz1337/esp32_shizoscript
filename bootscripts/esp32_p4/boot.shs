@@ -46,7 +46,14 @@ load_wlans()
 {
 	for(it :: default_config.wlans)
 	{
-		esp32_conf_add_wlan(it.ssid, it.password);
+		ssid = it.ssid;
+		if(ssid:empty_str())
+			ssid = "";
+		pw = it.password;
+		if(pw:empty_str())
+			pw = "";
+		if(!ssid:empty_str())
+			esp32_conf_add_wlan(ssid, password);
 	}
 }
 
