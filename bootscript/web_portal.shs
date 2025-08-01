@@ -1,5 +1,18 @@
 
-return;
+
+//TODO
+//3 color picker in home
+//Devices poll
+//Console
+//Steuerbar machen über voice ? mit mic?
+//über shizoai server ?
+//LLMApi sollte ja auch funktionieren !!!!
+//Microphone input_iterator
+//LED treiber selbst rewriten? clocklessdriver S3 compiled !!! testen !!!
+
+//AI push-to-talk button im webui direkt??? dieser recorded und sendet an shizoai server ???
+//Direkt den mikrofon input vom handy nehmen viel leichter ?????
+
 
 all_files = [
 	header_chunk = "header_chunk.html",
