@@ -13,6 +13,7 @@ all_files = [
 	"control_color.html",
 	"section_end.html",
 	"footer_chunk.html",
+	"section_presets.html",
 ];
 
 remote_download(file_name, is_tmp)

@@ -10,6 +10,7 @@ all_files = [
 	control_color = "control_color.html",
 	section_end = "section_end.html",
 	footer_chunk = "footer_chunk.html",
+	section_presets = "section_presets.html",
 ];
 
 chunks = 0;
