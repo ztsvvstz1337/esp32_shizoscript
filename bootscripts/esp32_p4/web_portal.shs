@@ -75,7 +75,7 @@ get_id(name)
 
 add_start()
 {
-	return render("header_chunk", 0);
+	return render("header_chunk", [device_name=default_config.name]);
 }
 add_end()
 {
