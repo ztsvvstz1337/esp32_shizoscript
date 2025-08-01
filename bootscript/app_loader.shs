@@ -124,6 +124,21 @@ print("Check for updates...");
 if(has_internet(5000))
 	check_updates();
 
+print("---INIT NETAPI---");
+shizonet.on_get("upload", (data, dev)
+{
+	print("File upload: " + data.name);
+	if(!data.name:empty_str())
+		filewrite(data.name, data.data);
+		return 1;
+	return 0;
+});
+shizonet.on_command("reboot", ()
+{
+	print("REBOOT");
+	esp_fastrestart();
+});
+
 print("---LOADING APP---");
 
 //Simple counter to check how often we restarted within a 30 second window...

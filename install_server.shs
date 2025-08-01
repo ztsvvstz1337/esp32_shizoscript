@@ -1,0 +1,13 @@
+
+set_auto_reload(1);
+
+local_ver = int(os.file_as_string("C:/Users/neu/Documents/_SHIZOSCRIPT PUBLIC/esp32_shizoscript/bootscript/version.txt")) + 1;
+filewrite("C:/Users/neu/Documents/_SHIZOSCRIPT PUBLIC/esp32_shizoscript/bootscript/version.txt", string(local_ver));
+
+net = shizonet_base();
+
+net.on_connect((dev)
+{
+	print(dev);
+	print(dev.get_name());
+});
