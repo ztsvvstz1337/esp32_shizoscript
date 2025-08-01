@@ -7,27 +7,23 @@
   <style>
     :root {
       --bg-dark: #111;
-      --bg-darker: #0a0a0a;
       --neon-blue: #0ff;
-      --neon-dim: #66ffff;           /* a bit brighter for contrast */
+      --neon-dim: #0cc;
       --input-bg: #1a1a1a;
-      --text-color: #f0f8ff;         /* lighter than #eee */
-      --section-bg: linear-gradient(145deg, #0e0e0e, #1a1a1a);
+      --text-color: #f0f8ff;
     }
 
     * {
-      margin: 0;
-      padding: 0;
       box-sizing: border-box;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text-color);
 	  font-size: 24px;               /* slightly bigger base font */
     }
 
     body {
+      margin: 0;
       background-color: var(--bg-dark);
-      color: var(--text-color);
       padding-bottom: 80px;
-	  font-size: 1.05rem;            /* ensures everything scales nicely */
     }
 
     a {
@@ -66,19 +62,20 @@
     }
 
     .container {
+      background: #1a1a1a;
       padding: 1rem;
-      max-width: 900px;
-      margin: auto;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
     }
 
     .section {
-	  margin-bottom: 2rem;
-	  background: var(--section-bg);
-	  border: 1px solid var(--neon-blue);
-	  border-radius: 18px;
-	  box-shadow: 0 0 25px rgba(0, 255, 255, 0.15);
+	  margin: 2rem;
 	  overflow: hidden;
 	  transition: all 0.3s ease;
+	  background: #1a1a1a;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
 	}
 
 	.section h2 {
@@ -90,7 +87,6 @@
 	  border-bottom: 1px solid var(--neon-blue);
 	  font-size: 1.6rem;
 	  font-weight: bold;
-	  text-shadow: 0 0 8px var(--neon-blue);
 	}
 
     .controls {
