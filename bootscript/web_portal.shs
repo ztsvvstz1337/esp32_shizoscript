@@ -225,9 +225,9 @@ class WebPortal =
 		{
 			page = this.add_start();
 			page += cb();
-			page += add_section("");
-			page += add_end();	
-			server.send(200, "text/html", page);
+			page += this.add_section("");
+			page += this.add_end();	
+			this.server.send(200, "text/html", page);
 		});
 	}
 };
@@ -236,14 +236,14 @@ global webui = WebPortal();
 
 webui.add_site("/settings", ()
 {	
-	page = add_section("Local Network Settings");
-	page += add_text("Name", 0, "ESP32");
-	page += add_text("Password", 0, "admin");
-	page += add_text("IP", 0, "2.0.0.10");
-	page += add_text("Gateway", 0, "2.0.0.1");
-	page += add_text("Netmask", 0, "255.255.255.0");
+	page = 	webui.add_section("Local Network Settings");
+	page += webui.add_text("Name", 0, "ESP32");
+	page += webui.add_text("Password", 0, "admin");
+	page += webui.add_text("IP", 0, "2.0.0.10");
+	page += webui.add_text("Gateway", 0, "2.0.0.1");
+	page += webui.add_text("Netmask", 0, "255.255.255.0");
 	
-	page += add_section("Remote WLANs");
+	page += webui.add_section("Remote WLANs");
 	
 	add_wlan_option(numid)
 	{
@@ -254,13 +254,13 @@ webui.add_site("/settings", ()
 		if(def_pw:empty_str())
 			def_pw = "";
 		
-		page += add_text("WLAN " + (numid+1) + " SSID", [numid](post_data)
+		page += webui.add_text("WLAN " + (numid+1) + " SSID", [numid](post_data)
 		{
 			print("updating: wlan" + numid);
 			default_config.wlans[numid].ssid = post_data.value;
 			config_update = 1;
 		}, def_ssid);
-		page += add_text("WLAN " + (numid+1) + " Password", [numid](post_data)
+		page += webui.add_text("WLAN " + (numid+1) + " Password", [numid](post_data)
 		{
 			print("updating: wlan" + numid + " pw");
 			default_config.wlans[numid].password = post_data.value;
@@ -273,9 +273,9 @@ webui.add_site("/settings", ()
 		add_wlan_option(i);
 	}
 	
-	page += add_section("System");
+	page += webui.add_section("System");
 	
-	page += add_checkbox("Debug", (post_data)
+	page += webui.add_checkbox("Debug", (post_data)
 	{
 		print("updating: debug");
 		default_config["debug"] = post_data.value;
@@ -285,11 +285,11 @@ webui.add_site("/settings", ()
 	return page;
 });
 
-webui.add_site("/settings", ()
+webui.add_site("/", ()
 {
-	page = add_presets();
-	page += add_section("Status");
-	page += add_status();
+	page = webui.add_presets();
+	page += webui.add_section("Status");
+	page += webui.add_status();
 	
 	return page;
 });
