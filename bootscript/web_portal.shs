@@ -27,8 +27,6 @@ chunks = 0;
 
 print("web_portal(): init webserver...");
 
-ws = webserver();
-
 load_chunks()
 {
 	print("Loading webportal templates...");
@@ -57,9 +55,6 @@ update_config_thread()
 }
 ~update_config_thread();
 
-
-net = shizonet_client();
-
 get_id(name)
 {
 	id = name:lowercase();
@@ -69,147 +64,179 @@ get_id(name)
 
 //HTML template render functions...
 
-render(chunk_name, options)
+class WebPortal =
 {
-	str = chunks[chunk_name];
-	for(i = 0; i < options:count(); i++)
+	server = 0;
+	closed_last_section = 1;
+	
+	WebPortal()
 	{
-		r1 = options:key(i);
-		r2 = options[i];
+		server = webserver();
+		closed_last_section = 1;
+	}
+	
+	~WebPortal()
+	{
+		free(server);
+	}
+
+	//UI Controls
+
+	render(chunk_name, options)
+	{
+		str = chunks[chunk_name];
+		for(i = 0; i < options:count(); i++)
+		{
+			r1 = options:key(i);
+			r2 = options[i];
+			
+			str = str:replace("{{" + r1 + "}}", r2);
+		}
 		
-		str = str:replace("{{" + r1 + "}}", r2);
+		return str;
 	}
-	
-	return str;
-}
 
-add_start()
-{
-	btns_str = "";
-	for(i = 0; i < header_buttons:count(); i++)
+	add_start()
 	{
-		//<a href="/settings">SETTINGS</a>
-		btns_str += "<a href=" + qt() + header_buttons[i] + qt() + ">" + header_buttons:key(i) + "</a>\n";
+		btns_str = "";
+		for(i = 0; i < header_buttons:count(); i++)
+		{
+			//<a href="/settings">SETTINGS</a>
+			btns_str += "<a href=" + qt() + header_buttons[i] + qt() + ">" + header_buttons:key(i) + "</a>\n";
+		}
+		return render("header_chunk", [device_name=default_config.name, buttons=btns_str]);
 	}
-	return render("header_chunk", [device_name=default_config.name, buttons=btns_str]);
-}
 
-add_end()
-{
-	return render("footer_chunk", 0);
-}
-
-closed_last_section = 1;
-add_section(title)
-{
-	str = "";
-	if(!closed_last_section)
-		str += render("section_end", 0);
-	if(!title:empty_str())
-		str += render("section_start", [section_title = title]);
-		closed_last_section = 0;
-	return str;
-}
-
-add_presets()
-{
-	return render("section_presets", 0);
-}
-
-add_status()
-{
-	return render("status_block", [ip=net.get_ip(), mac=net.get_mac()]);
-}
-
-add_ctrl(type, name, cb, options)
-{
-	id = get_id(name);
-	
-	options.id = id;
-	options.name = name;
-	
-	str = render("control_" + type, options);	
-	
-	ws.post("/"+id, [cb](post_data)
+	add_end()
 	{
-		cb(post_data);
-		ws.send(200, "text/html", "success");
-	});
-	
-	return str;
-}
+		return render("footer_chunk", 0);
+	}
 
-add_slider(name, cb, minv, maxv, defaultv)
-{
-	options = [min=minv, max=maxv, value=defaultv];
-	
-	id = get_id(name);
-	
-	if(default_config:has_key(id))
-		options.value = default_config[id];
-	
-	cb2 = [id](post_data)
+	add_section(title)
 	{
-		print("updating: " + id);
-		default_config[id] = post_data.value;
-		config_update = 1;
-	};
-	
-	if(cb:is_function())
-		cb2 = cb;
-	
-	return add_ctrl("slider", name, cb2, options);
-}
+		str = "";
+		if(!closed_last_section)
+			str += render("section_end", 0);
+		if(!title:empty_str())
+			str += render("section_start", [section_title = title]);
+			closed_last_section = 0;
+		return str;
+	}
 
-add_text(name, cb, defaultv)
-{
-	options = [value=defaultv];
-	
-	id = get_id(name);
-	
-	if(default_config:has_key(id))
-		options.value = default_config[id];
-	
-	cb2 = [id](post_data)
+	add_presets()
 	{
-		print("updating: " + id);
-		default_config[id] = post_data.value;
-		config_update = 1;
-	};
-	
-	if(cb:is_function())
-		cb2 = cb;
-	
-	return add_ctrl("text", name, cb2, options);
-}
+		return render("section_presets", 0);
+	}
 
-add_checkbox(name, cb, defaultv)
-{
-	options = [checked=defaultv];
-	
-	id = get_id(name);
-	
-	if(default_config:has_key(id))
-		options.checked = default_config[id];
-	
-	cb2 = [id](post_data)
+	add_status()
 	{
-		print("updating: " + id);
-		default_config[id] = post_data.value;
-		config_update = 1;
-	};
-	
-	if(cb:is_function())
-		cb2 = cb;
-	
-	return add_ctrl("checkbox", name, cb2, options);
-}
+		return render("status_block", [ip=shizonet.get_ip(), mac=shizonet.get_mac()]);
+	}
 
-ws.on("/settings",()
+	add_ctrl(type, name, cb, options)
+	{
+		id = get_id(name);
+		
+		options.id = id;
+		options.name = name;
+		
+		str = render("control_" + type, options);	
+		
+		server.post("/"+id, [cb](post_data)
+		{
+			cb(post_data);
+			server.send(200, "text/html", "success");
+		});
+		
+		return str;
+	}
+
+	add_slider(name, cb, minv, maxv, defaultv)
+	{
+		options = [min=minv, max=maxv, value=defaultv];
+		
+		id = get_id(name);
+		
+		if(default_config:has_key(id))
+			options.value = default_config[id];
+		
+		cb2 = [id](post_data)
+		{
+			print("updating: " + id);
+			default_config[id] = post_data.value;
+			config_update = 1;
+		};
+		
+		if(cb:is_function())
+			cb2 = cb;
+		
+		return add_ctrl("slider", name, cb2, options);
+	}
+
+	add_text(name, cb, defaultv)
+	{
+		options = [value=defaultv];
+		
+		id = get_id(name);
+		
+		if(default_config:has_key(id))
+			options.value = default_config[id];
+		
+		cb2 = [id](post_data)
+		{
+			print("updating: " + id);
+			default_config[id] = post_data.value;
+			config_update = 1;
+		};
+		
+		if(cb:is_function())
+			cb2 = cb;
+		
+		return add_ctrl("text", name, cb2, options);
+	}
+
+	add_checkbox(name, cb, defaultv)
+	{
+		options = [checked=defaultv];
+		
+		id = get_id(name);
+		
+		if(default_config:has_key(id))
+			options.checked = default_config[id];
+		
+		cb2 = [id](post_data)
+		{
+			print("updating: " + id);
+			default_config[id] = post_data.value;
+			config_update = 1;
+		};
+		
+		if(cb:is_function())
+			cb2 = cb;
+		
+		return add_ctrl("checkbox", name, cb2, options);
+	}
+
+	//Add new sites
+	
+	add_site(url, cb)
+	{
+		server.on(url, [this, cb]()
+		{
+			page = this.add_start();
+			page += cb();
+			page += add_section("");
+			page += add_end();	
+			server.send(200, "text/html", page);
+		});
+	}
+};
+
+global webui = WebPortal();
+
+webui.add_site("/settings", ()
 {	
-	page = add_start();
-	
-	page += add_section("Local Network Settings");
+	page = add_section("Local Network Settings");
 	page += add_text("Name", 0, "ESP32");
 	page += add_text("Password", 0, "admin");
 	page += add_text("IP", 0, "2.0.0.10");
@@ -255,22 +282,16 @@ ws.on("/settings",()
 		config_update = 1;
 	}, 0);
 	
-	page += add_section("");
-	page += add_end();	
-	ws.send(200, "text/html", page);
+	return page;
 });
 
-ws.on("/",()
+webui.add_site("/settings", ()
 {
-	page = add_start();
-	
-	page += add_presets();
+	page = add_presets();
 	page += add_section("Status");
 	page += add_status();
 	
-	page += add_section("");
-	page += add_end();
-	ws.send(200, "text/html", page);
+	return page;
 });
 
 print("web_portal(): active");

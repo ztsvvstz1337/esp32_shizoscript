@@ -1,4 +1,7 @@
 
+
+global shizonet = shizonet_client();
+
 print("---UPDATE CHECK---");
 
 all_files = [
