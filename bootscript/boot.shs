@@ -2,7 +2,7 @@
 print("---BOOT SCRIPT---");
 
 global default_config = [
-	name 		= "esp32_p4",
+	name 		= "esp32_shizoscript",
 	password 	= "admin",
 	ip 			= "2.0.0.10",
 	gateway 	= "2.0.0.1",

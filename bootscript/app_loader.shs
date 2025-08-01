@@ -5,26 +5,25 @@ all_files = [
 	"boot.shs",
 	"app_loader.shs",
 	"web_portal.shs",
-	"header_chunk.html",
-	"section_start.html",
-	"control_slider.html",
-	"control_text.html",
-	"control_checkbox.html",
-	"control_color.html",
-	"section_end.html",
-	"footer_chunk.html",
-	"section_presets.html",
-	"status_block.html",
-	"ai_setup.html",
+	"ui/header_chunk.html",
+	"ui/section_start.html",
+	"ui/control_slider.html",
+	"ui/control_text.html",
+	"ui/control_checkbox.html",
+	"ui/control_color.html",
+	"ui/section_end.html",
+	"ui/footer_chunk.html",
+	"ui/status_block.html",
 ];
 
 remote_download(file_name, is_tmp)
 {
-	auto_update_path    = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/" + file_name;
+	auto_update_path    = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscript/" + file_name;
 	auto_update_local   = "/";
-	if(is_tmp)
-		auto_update_local += "tmp_";
 	auto_update_local += file_name;
+
+	if(is_tmp)
+		auto_update_local += ".tmp";
 
 	print("Downloading: " + file_name);
 	if(!download_git(auto_update_path, auto_update_local))
@@ -51,8 +50,8 @@ cleanup_files()
 {
 	for(it :: all_files)
 	{
-		fileremove("/tmp_" + it);
-		print("Cleaned: " + "/tmp_" + it);
+		fileremove(it + ".tmp");
+		print("Cleaned: " + it + ".tmp");
 	}
 }
 
@@ -72,7 +71,7 @@ download_all()
 	for(it :: all_files)
 	{
 		print("updating: " + it);
-		tmp = fileread("/tmp_" + it);
+		tmp = fileread(it + ".tmp");
 		filewrite(it, tmp);
 		print("updated.");
 	}
@@ -85,7 +84,7 @@ download_all()
 
 check_updates()
 {
-	version_file_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscripts/esp32_p4/version.txt";
+	version_file_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscript/version.txt";
 	version_file_local = "/version.txt";
 	version_file_local2 = "/version_new.txt";
 	download_git(version_file_path, version_file_local2);
