@@ -104,7 +104,7 @@ check_updates()
 			print("Update successful.");
 			print("Rebooting...");
 			filewrite(version_file_local, new_version);
-			esp_restart();
+			esp_fastrestart();
 		else
 			print("Update failed, continuing...");
 	}

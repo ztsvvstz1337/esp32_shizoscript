@@ -9,9 +9,9 @@
       --bg-dark: #111;
       --bg-darker: #0a0a0a;
       --neon-blue: #0ff;
-      --neon-dim: #0cc;
+      --neon-dim: #66ffff;           /* a bit brighter for contrast */
       --input-bg: #1a1a1a;
-      --text-color: #eee;
+      --text-color: #f0f8ff;         /* lighter than #eee */
       --section-bg: linear-gradient(145deg, #0e0e0e, #1a1a1a);
     }
 
@@ -20,12 +20,14 @@
       padding: 0;
       box-sizing: border-box;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+	  font-size: 24px;               /* slightly bigger base font */
     }
 
     body {
       background-color: var(--bg-dark);
       color: var(--text-color);
       padding-bottom: 80px;
+	  font-size: 1.05rem;            /* ensures everything scales nicely */
     }
 
     a {
@@ -52,6 +54,7 @@
       font-weight: bold;
       color: var(--neon-blue);
       text-shadow: 0 0 10px var(--neon-blue);
+	  font-size: 1.8rem;             /* SHIZOTECH logo text */
     }
 
     .nav-right a {
@@ -59,6 +62,7 @@
       color: var(--neon-blue);
       font-weight: bold;
       text-shadow: 0 0 5px var(--neon-blue);
+	  font-size: 1.1rem;
     }
 
     .container {
@@ -82,9 +86,9 @@
       padding: 1rem;
       cursor: pointer;
       user-select: none;
-      font-size: 1.2rem;
       color: var(--neon-blue);
       border-bottom: 1px solid var(--neon-blue);
+	  font-size: 1.4rem;
     }
 
     .controls {
