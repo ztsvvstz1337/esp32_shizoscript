@@ -15,6 +15,7 @@ all_files = [
 	"footer_chunk.html",
 	"section_presets.html",
 	"status_block.html",
+	"ai_setup.html",
 ];
 
 remote_download(file_name, is_tmp)

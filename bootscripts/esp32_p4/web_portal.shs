@@ -249,12 +249,29 @@ ws.on("/",()
 	page = add_start();
 	
 	page += add_presets();
+	page += render("ai_setup", 0);
+	page += add_end();
+	ws.send(200, "text/html", page);
+});
+
+ws.on("/ai",()
+{
+	page = add_start();
+	
+	page += add_presets();
 	page += add_section("Status");
 	page += add_status();
 	
 	page += add_section("");
 	page += add_end();
 	ws.send(200, "text/html", page);
+});
+
+ws.post_data("/upload-voice", (buffer)
+{
+	print("Audio data: " + buffer:count());
+
+	ws.send(200, "text/html", "success");
 });
 
 print("web_portal(): active");
