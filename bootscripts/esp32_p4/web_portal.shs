@@ -90,6 +90,11 @@ add_section(title)
 	return str;
 }
 
+add_presets()
+{
+	return render("section_presets", 0);
+}
+
 add_ctrl(type, name, cb, options)
 {
 	id = get_id(name);
@@ -220,14 +225,20 @@ ws.on("/settings",()
 	}, 0);
 	
 	page += add_section("");
-	page += add_end();
-	
+	page += add_end();	
 	ws.send(200, "text/html", page);
 });
 
 ws.on("/",()
 {
+	page = add_start();
 	
+	page += add_section("Status");
+	page += add_presets();
+	
+	page += add_section("");
+	page += add_end();
+	ws.send(200, "text/html", page);
 });
 
 print("web_portal(): active");

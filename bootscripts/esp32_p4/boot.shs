@@ -53,7 +53,7 @@ load_wlans()
 		if(pw:empty_str())
 			pw = "";
 		if(!ssid:empty_str())
-			esp32_conf_add_wlan(ssid, password);
+			esp32_conf_add_wlan(ssid, pw);
 	}
 }
 
