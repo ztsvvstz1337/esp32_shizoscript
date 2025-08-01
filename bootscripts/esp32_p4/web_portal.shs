@@ -1,6 +1,4 @@
 
-return;
-
 all_files = [
 	header_chunk = "header_chunk.html",
 	section_start = "section_start.html",
@@ -30,6 +28,21 @@ load_chunks()
 }
 
 load_chunks();
+
+config_update = 0;
+update_config_thread()
+{
+	for(1)
+	{
+		//This is to relax saving on update spam...
+		if(config_update)
+			sleep(500);
+			save_config();
+			config_update = 0;
+		sleep(3000);
+	}
+}
+~update_config_thread();
 
 render(chunk_name, options)
 {
@@ -96,9 +109,10 @@ add_slider(name, cb, minv, maxv, defaultv)
 	
 	cb2 = [cb, id](post_data)
 	{
+		print("updating: " + id);
 		cb(post_data);
 		default_config[id] = post_data.value;
-		save_config();
+		config_update = 1;
 	};
 	
 	return add_ctrl("slider", name, cb2, options);
