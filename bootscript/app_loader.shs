@@ -2,6 +2,24 @@
 
 global shizonet = shizonet_client();
 
+print("---INIT NETAPI---");
+
+shizonet.enable_shizonet(0); //Enabled at the end of this script
+
+shizonet.on_get("upload", (data, dev)
+{
+	print("File upload: " + data.name + " (" + data.data:count() + ")");
+	if(!data.name:empty_str())
+		filewrite(data.name, data.data);
+		return 1;
+	return 0;
+});
+shizonet.on_command("reboot", (data, dev)
+{
+	print("REBOOT");
+	esp_fastrestart();
+});
+
 print("---UPDATE CHECK---");
 
 all_files = [
@@ -124,21 +142,6 @@ print("Check for updates...");
 if(has_internet(5000))
 	check_updates();
 
-print("---INIT NETAPI---");
-shizonet.on_get("upload", (data, dev)
-{
-	print("File upload: " + data.name + " (" + data.data:count() + ")");
-	if(!data.name:empty_str())
-		filewrite(data.name, data.data);
-		return 1;
-	return 0;
-});
-shizonet.on_command("reboot", (data, dev)
-{
-	print("REBOOT");
-	esp_fastrestart();
-});
-
 print("---LOADING APP---");
 
 //Simple counter to check how often we restarted within a 30 second window...
@@ -193,3 +196,5 @@ if(main_app == 0)
 {
 	print("No app loaded!");
 }
+
+shizonet.enable_shizonet(1);

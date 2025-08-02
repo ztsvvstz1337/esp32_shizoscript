@@ -31,9 +31,11 @@ net.on_connect((dev)
 			]));
 		}
 		
-		sleep(5000);
+		print("REBOOTING DEVICE...");
 		
-		dev.send("reboot");
+		sleep(500);
+		
+		dev.send("reboot", 1);
 	
 		//dev.get("upload"
 	}
