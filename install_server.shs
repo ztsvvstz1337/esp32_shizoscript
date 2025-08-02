@@ -6,8 +6,35 @@ filewrite("C:/Users/neu/Documents/_SHIZOSCRIPT PUBLIC/esp32_shizoscript/bootscri
 
 net = shizonet_base();
 
+boot_files = files("bootscript");
+
+for(#it :: boot_files)
+	$it = it:substr(count("bootscript/"));
+
+print(boot_files);
+
+
 net.on_connect((dev)
 {
 	print(dev);
 	print(dev.get_name());
+	
+	if(dev.get_name():starts("esp32_"))
+	{
+		print("Uploading...");
+		for(it :: boot_files)
+		{
+			//print("Uploading...");
+			print(dev.get("upload", [
+				name=it,
+				data=fileread("bootscript/" + it)
+			]));
+		}
+		
+		sleep(5000);
+		
+		dev.send("reboot");
+	
+		//dev.get("upload"
+	}
 });

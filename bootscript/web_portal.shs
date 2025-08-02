@@ -142,10 +142,10 @@ class WebPortal =
 		
 		str = render("control_" + type, options);	
 		
-		server.post("/"+id, [cb](post_data)
+		server.post("/"+id, [this, cb](post_data)
 		{
 			cb(post_data);
-			server.send(200, "text/html", "success");
+			this.server.send(200, "text/html", "success");
 		});
 		
 		return str;
