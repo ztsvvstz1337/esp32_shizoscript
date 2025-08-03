@@ -110,31 +110,56 @@ download_all()
 
 check_updates()
 {
-	version_file_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscript/version.txt";
-	version_file_local = "/version.txt";
-	version_file_local2 = "/version_new.txt";
+	//First, update firmware
+	content_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/firmware/";
+	version_file_path = content_path + "version.txt";
+	version_file_local = "/firm_version.txt";
+	version_file_local2 = "/firm_version_new.txt";
 	download_git(version_file_path, version_file_local2);
-
 	old_version = string(fileread(version_file_local));
 	new_version = string(fileread(version_file_local2));
 	
 	if(!new_version:empty_str())
 	{
-		if(int(old_version) >= int(new_version))
+		if(int(old_version) < int(new_version))
 		{
-			print("Firmware is up to date (" + old_version + ")");
-			return;
+			print("Updating firmware...");
+			if(download_ota(content_path + "firmware." + firmware_type()))
+			{
+				print("Update successful.");
+				print("Rebooting...");
+				filewrite(version_file_local, new_version);
+				esp_fastrestart();
+			}
 		}
-		
-		print("Updating version " + old_version + " to version " + new_version);
-		
-		if(download_all())		
-			print("Update successful.");
-			print("Rebooting...");
-			filewrite(version_file_local, new_version);
-			esp_fastrestart();
 		else
-			print("Update failed, continuing...");
+			print("Firmware is up to date (" + old_version + ")");
+	}
+	
+	//Now update bootscripts...
+	version_file_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscript/version.txt";
+	version_file_local = "/version.txt";
+	version_file_local2 = "/version_new.txt";
+	download_git(version_file_path, version_file_local2);
+	old_version = string(fileread(version_file_local));
+	new_version = string(fileread(version_file_local2));
+	
+	if(!new_version:empty_str())
+	{
+		if(int(old_version) < int(new_version))
+		{			
+			print("Updating bootscript version " + old_version + " to version " + new_version);
+			
+			if(download_all())		
+				print("Update successful.");
+				print("Rebooting...");
+				filewrite(version_file_local, new_version);
+				esp_fastrestart();
+			else
+				print("Update failed, continuing...");
+		}
+		else
+			print("Bootscripts up to date (" + old_version + ")");
 	}
 	else
 	{
