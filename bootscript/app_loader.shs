@@ -1,4 +1,18 @@
 
+all_files = [
+	"boot.shs",
+	"app_loader.shs",
+	"web_portal.shs",
+	"ui/header_chunk.html",
+	"ui/section_start.html",
+	"ui/control_slider.html",
+	"ui/control_text.html",
+	"ui/control_checkbox.html",
+	"ui/control_color.html",
+	"ui/section_end.html",
+	"ui/footer_chunk.html",
+	"ui/status_block.html",
+];
 
 global shizonet = shizonet_client();
 
@@ -6,6 +20,12 @@ print("---INIT NETAPI---");
 
 shizonet.enable_shizonet(0); //Enabled at the end of this script
 
+shizonet.on_get("check_version", (data, dev)
+{
+	version_file_local = "/version.txt";
+	ver = string(fileread(version_file_local));
+	return ver;
+});
 shizonet.on_get("upload", (data, dev)
 {
 	print("File upload: " + data.name + " (" + data.data:count() + ")");
@@ -21,21 +41,6 @@ shizonet.on_command("reboot", (data, dev)
 });
 
 print("---UPDATE CHECK---");
-
-all_files = [
-	"boot.shs",
-	"app_loader.shs",
-	"web_portal.shs",
-	"ui/header_chunk.html",
-	"ui/section_start.html",
-	"ui/control_slider.html",
-	"ui/control_text.html",
-	"ui/control_checkbox.html",
-	"ui/control_color.html",
-	"ui/section_end.html",
-	"ui/footer_chunk.html",
-	"ui/status_block.html",
-];
 
 remote_download(file_name, is_tmp)
 {
@@ -161,7 +166,7 @@ if(!web_portal_script:empty_str())
 else
 	print("No webportal found!");
 
-local_script = string(fileread("/app.shs"));
+local_script = string(fileread("/app/app.shs"));
 print("Size: " + local_script:count());
 
 main_app = 0;
