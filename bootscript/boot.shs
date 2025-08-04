@@ -1,4 +1,7 @@
 
+//This file handles config reading right before
+//any networking is initialized (used to set hostname etc)
+
 print("---BOOT SCRIPT---");
 
 global default_config = [
@@ -24,6 +27,12 @@ global save_config()
 {
 	print("Saving config...");
 	filewrite("/config.txt", to_json_string(default_config));
+}
+
+global update_config(conf_key, conf_value)
+{
+	default_config[conf_key] = conf_value;
+	save_config();
 }
 
 load_config();

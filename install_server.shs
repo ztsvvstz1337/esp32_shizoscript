@@ -1,13 +1,29 @@
 
 set_auto_reload(1);
 
-local_ver = int(os.file_as_string("C:/Users/neu/Documents/_SHIZOSCRIPT PUBLIC/esp32_shizoscript/bootscript/version.txt")) + 1;
-filewrite("C:/Users/neu/Documents/_SHIZOSCRIPT PUBLIC/esp32_shizoscript/bootscript/version.txt", string(local_ver));
+local_ver = int(os.file_as_string("bootscript/version.txt")) + 1;
+filewrite("bootscript/version.txt", string(local_ver));
 local_ver = string(local_ver);
 
-sleep(5000);
 
-net = shizonet_base();
+local_firmware = "C:/Users/neu/Documents/Arduino/SKETCHES/ESP/esp_shizoscript_P4_Nano/build/esp32.esp32.esp32p4/esp_shizoscript_P4_Nano.ino.bin";
+if(fileexists(local_firmware))
+{
+	lhash = filehash(local_firmware);
+	ohash = filehash("firmware/firmware.esp32p4");
+	print("Hashes: " + lhash + " " + ohash);
+	if(lhash != ohash)
+	{
+		print("Updating firmware...");
+		os.copy(local_firmware,"firmware/firmware.esp32p4");
+		local_ver2 = int(os.file_as_string("firmware/version.txt")) + 1;
+		filewrite("firmware/version.txt", string(local_ver2));
+	}
+}
+local_firm_ver = os.file_as_string("firmware/version.txt");
+
+
+net = shizonet_base("INSTALLER");
 
 boot_files = files("bootscript");
 
@@ -22,6 +38,56 @@ net.on_connect((dev)
 	
 	if(dev.get_name():starts("esp32_"))
 	{
+		if(dev.get("check_firm_version") != local_firm_ver)
+		{
+			print("Updating firmware...");
+			bin = fileread("firmware/firmware.esp32p4");
+			
+			if(!bin)
+				print("Firmware read error!");
+			else
+			{
+			
+				print(std.sha256(bin));
+				
+				print("start upload... " + bin:count());
+				
+				ota_res = dev.fetch("esp32_ota_enabled");
+				print(ota_res);
+				
+				ota_res = dev.fetch("ESP32_OTA_START", bin:count());
+				print(ota_res);
+				
+				chunk_start = 0;
+				chunk_size = 1024 * 5;
+				
+				for(i = 0; i < bin:count(); i+=chunk_size)
+				{
+					sub_bin = bin:subset(i, chunk_size);
+					print("SEND CHUNK: " + i + " SIZE: " + chunk_size);
+					
+					ota_res = dev.fetch("ESP32_OTA_CHUNK", sub_bin);
+					
+					print(ota_res);
+					
+					if(ota_res.success != 1)
+						print("OTA CHUNK ERROR!");
+						return;
+					//sleep(2000);
+				}
+				
+				print(dev.get("upload", [
+					name="firm_version.txt",
+					data=local_firm_ver
+				]));
+				
+				ota_res = dev.fetch("ESP32_OTA_END", bin:count());
+				
+				return;
+			}
+			
+		}
+
 		if(dev.get("check_version") == local_ver)
 			print("device is up to date.");
 			return;

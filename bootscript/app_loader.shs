@@ -26,6 +26,13 @@ shizonet.on_get("check_version", (data, dev)
 	ver = string(fileread(version_file_local));
 	return ver;
 });
+shizonet.on_get("check_firm_version", (data, dev)
+{
+	print("getting firmware version...");
+	version_file_local = "/firm_version.txt";
+	ver = string(fileread(version_file_local));
+	return ver;
+});
 shizonet.on_get("upload", (data, dev)
 {
 	print("File upload: " + data.name + " (" + data.data:count() + ")");
@@ -110,6 +117,7 @@ download_all()
 
 check_updates()
 {
+	print("Checking firmware...");
 	//First, update firmware
 	content_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/firmware/";
 	version_file_path = content_path + "version.txt";
@@ -136,6 +144,7 @@ check_updates()
 			print("Firmware is up to date (" + old_version + ")");
 	}
 	
+	print("Checking bootscripts...");
 	//Now update bootscripts...
 	version_file_path = "https://raw.githubusercontent.com/ztsvvstz1337/esp32_shizoscript/main/bootscript/version.txt";
 	version_file_local = "/version.txt";
@@ -200,7 +209,7 @@ if(!local_script:empty_str())
 {
 	last_state = read_crash();
 	
-	if(last_state == 10)
+	if(last_state == 5)
 	{
 		print("app scripted crashed too often, disabling it for now (reset to restart).");
 		write_crash(0);
