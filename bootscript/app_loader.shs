@@ -31,6 +31,7 @@ shizonet.on_get("check_firm_version", (data, dev)
 	print("getting firmware version...");
 	version_file_local = "/firm_version.txt";
 	ver = string(fileread(version_file_local));
+	print("ver: " + ver);
 	return ver;
 });
 shizonet.on_get("upload", (data, dev)

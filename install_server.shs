@@ -199,13 +199,22 @@ create_entry(dev)
 }
 
 print("---ON CONNECT---");
-
+net.set_debug(1);
 net.on_connect((dev)
 {
 	print(dev.get_name());
-	
 	if(dev.get_name():starts("esp32"))
 	{
+		print("GET FIRMWARE");
+		cur_firm = dev.get("check_firm_version");
+		
+		for(cur_firm == 0)
+		{
+			print("Cannot get firmware, retrying...");
+			cur_firm = dev.get("check_firm_version");
+		}
+		
+		print("FIRM: " + cur_firm);
 		if(dev.get("check_firm_version") != local_firm_ver)
 		{
 			print("Updating firmware...");
@@ -256,7 +265,7 @@ net.on_connect((dev)
 			
 		}
 
-		if(dev.get("check_version") == local_ver)
+		if(dev.fetch("check_version") == local_ver)
 			print("device is up to date.");
 			create_entry(dev);
 			return;
@@ -265,7 +274,7 @@ net.on_connect((dev)
 		for(it :: boot_files)
 		{
 			//print("Uploading...");
-			print(dev.get("upload", [
+			print(dev.fetch("upload", [
 				name=it,
 				data=fileread("bootscript/" + it)
 			]));
