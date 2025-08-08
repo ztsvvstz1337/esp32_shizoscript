@@ -1,10 +1,11 @@
 
 set_auto_reload(1);
 
-local_ver = int(os.file_as_string("bootscript/version.txt")) + 1;
-filewrite("bootscript/version.txt", string(local_ver));
-local_ver = string(local_ver);
+local_ver = int(os.file_as_string("bootscript/version.txt"));
 
+//local_ver = int(os.file_as_string("bootscript/version.txt")) + 1;
+//filewrite("bootscript/version.txt", string(local_ver));
+//local_ver = string(local_ver);
 
 local_firmware = "C:/Users/neu/Documents/Arduino/SKETCHES/ESP/esp_shizoscript_P4_Nano/build/esp32.esp32.esp32p4/esp_shizoscript_P4_Nano.ino.bin";
 if(fileexists(local_firmware))
@@ -32,11 +33,178 @@ for(#it :: boot_files)
 
 print(boot_files);
 
+scr = ui.screen("APP FLASHER", 610,480);
+wnd = ui.window(scr);
+wnd := anchor_all = 0, layout = -1;
+scroll = ui.vscroll(wnd);
+scroll := anchor_all = 0;
+item_cnt = ui.container(scroll);
+
+items = 0;
+
+get_apps()
+{
+	app_folders = folders("apps");
+	
+	apps = 0;
+	
+	for(i = 0; i < app_folders:count(); i++)
+	{
+		app_config = from_json_string(os.file_as_string(app_folders[i] + "/app_config.json"));
+		print("app_config: ");
+		print(app_config);
+		
+		if(app_config:count() == 0)
+			print("invalid app!");
+			print(app_folders[i]);
+			continue;
+		
+		executables = filesext(app_folders[i], ".shs");
+		data_content = files(app_folders[i] + "/data");
+
+		apps[app_config.name] = [
+			config=app_config, 
+			app_paths = executables,
+			data_paths = data_content,
+			path=app_folders[i], 
+			name=app_config.name,
+		];
+	}
+	
+	return apps;
+}
+
+create_entry(dev)
+{
+	print("DEV CONFIG:");
+	print(dev.get("get_config"));
+	print("DEV FILES:");
+	print(dev.get("files"));
+	print("DEV FIRMWARE:");
+	print(dev.get("firmware_type"));
+	
+	if(items:has_key(dev.get_mac()))
+	{
+		print("device already registered.");
+		free(items[dev.get_mac()]);
+	}
+
+	cnt = ui.widget(item_cnt);
+	cnt := anchor_all = 3, anchor_top = -1, anchor_bottom = -1, fixed_height = 40, outline=0;
+		
+	items[dev.get_mac()] = cnt;
+	
+	name_label = ui.textbox(cnt, dev.get_name());
+	name_label := anchor_all = 0, anchor_right = -1, fixed_width = 200, editable=1, font_size=20;
+	name_label.callback = [dev, name_label]()
+	{
+		new_name = name_label.value;
+		if(!new_name:starts("esp32"))
+			new_name = "esp32_" + new_name;
+		name_label.value = new_name;
+		dev.send("set_config", [name=new_name]);
+	}
+	
+	reboot_btn = ui.button(cnt, "REBOOT");
+	reboot_btn := anchor_all = 0, anchor_right = -1, anchor_left = 200, fixed_width = 100;
+	reboot_btn.callback = [dev]()
+	{
+		dev.send("reboot", 1);
+	};
+	
+	reflash_btn = ui.button(cnt, "REFLASH");
+	reflash_btn := anchor_all = 0, anchor_right = -1, anchor_left = 300, fixed_width = 100;
+	reflash_btn.callback = [dev]()
+	{
+		print("Uploading...");
+		for(it :: boot_files)
+		{
+			//print("Uploading...");
+			print(dev.get("upload", [
+				name=it,
+				data=fileread("bootscript/" + it)
+			]));
+		}
+		
+		print("REBOOTING DEVICE...");
+		
+		sleep(500);
+		
+		dev.send("reboot", 1);
+	};
+	
+	test_btn = ui.pushbutton(cnt, "TEST");
+	test_btn := anchor_all = 0, anchor_right = -1, anchor_left = 400, fixed_width = 100;
+	test_btn.callback = [dev, test_btn]()
+	{
+		print("Test device: " + test_btn.value);
+		dev.send("test_device", test_btn.value);
+	};
+	
+	app_select = ui.combobox(cnt);
+	app_select := anchor_all = 0, anchor_right = -1, anchor_left = 500, fixed_width = 100, set_side("bottom");
+
+	apps = get_apps();
+	app_items = ["NO APP"];
+	app_config = dev.get("get_app_config");
+	active_app = -1;
+	
+	for(i = 0; i < apps:count(); i++)
+	{
+		app_items:push(apps:key(i));
+		if(app_config.name == apps:key(i))
+			active_app = i+1;
+	}
+	print(app_items);
+	app_select.set_items(app_items);
+	if(active_app >= 0)
+		app_select.value = active_app;
+	
+	app_select.callback = [dev, app_select, apps]()
+	{
+		print("App select: " + app_select.value);
+		id = app_select.value;
+		dev.send("clear_app", 1);
+		
+		if(id > 0)
+		{
+			id--;
+			app = apps[id];
+			
+			print("MODULES:");
+			print(app.app_paths);
+			
+			for(exe :: app.app_paths)
+			{
+				print(dev.get("upload", [
+					name="/app/" + os.file_name(exe) + ".shs",
+					data=fileread(exe)
+				]));
+			}
+			
+			print("CONTENT:");
+			print(app.data_paths);
+			
+			for(data :: app.data_paths)
+			{
+				print(dev.get("upload", [
+					name="/app/" + os.file_name(data) + "." + os.file_ext(data),
+					data=fileread(data)
+				]));
+			}
+			
+			dev.send("set_app_config", app.config);
+		}
+	};
+}
+
+print("---ON CONNECT---");
+
 net.on_connect((dev)
 {
 	print(dev.get_name());
 	
-	if(dev.get_name():starts("esp32_"))
+	if(dev.get_name():starts("esp32"))
 	{
 		if(dev.get("check_firm_version") != local_firm_ver)
 		{
@@ -90,6 +258,7 @@ net.on_connect((dev)
 
 		if(dev.get("check_version") == local_ver)
 			print("device is up to date.");
+			create_entry(dev);
 			return;
 			
 		print("Uploading...");

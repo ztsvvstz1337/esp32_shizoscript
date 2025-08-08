@@ -41,10 +41,45 @@ shizonet.on_get("upload", (data, dev)
 		return 1;
 	return 0;
 });
+shizonet.on_get("download", (data, dev)
+{
+	if(!data:empty_str())
+		print("File download: " + data);
+		return fileread(data);
+	return 0;
+});
+shizonet.on_get("files", (data, dev)
+{
+	return fs_list_files();
+});
+shizonet.on_get("firmware_type", (data, dev)
+{
+	return firmware_type();
+});
 shizonet.on_command("reboot", (data, dev)
 {
 	print("REBOOT");
 	esp_fastrestart();
+});
+shizonet.on_command("set_config", (data, dev)
+{
+	if(data:is_json())
+	{
+		for(i = 0; i < data:count(); i++)
+		{
+			default_config[data:key(i)] = data[i];
+			print("Set config option " + data:key(i) + " to " + data[i]);
+			
+			if(data:key(i) == "name")
+				shizonet.set_name(data[i]);
+		}
+		
+		save_config();
+	}
+});
+shizonet.on_get("get_config", (data, dev)
+{
+	return default_config;
 });
 
 print("---UPDATE CHECK---");
@@ -199,6 +234,40 @@ if(!web_portal_script:empty_str())
 	web_portal = loadmodule(web_portal_script, 0, 1);
 else
 	print("No webportal found!");
+
+app_config = from_json_string(fileread("app_config.json"));
+print("APP CONFIG:");
+print(app_config);
+
+shizonet.on_command("set_app_config", (data, dev)
+{
+	if(data:is_json())
+	{
+		filewrite("app_config.json", to_json_string(data));
+		print("APP CONFIG:");
+		print(data);
+	}
+});
+shizonet.on_get("get_app_config", (data, dev)
+{
+	return app_config;
+});
+shizonet.on_command("clear_app", (data, dev)
+{
+	fl = fs_list_files();
+	
+	for(it :: fl)
+	{
+		if(it:starts("/app/"))
+		{
+			print("Removing: " + it);
+			fileremove(it);
+		}
+	}
+	filewrite("app_config.json", "");
+	print("Cleared app.");
+});
+
 
 local_script = string(fileread("/app/app.shs"));
 print("Size: " + local_script:count());
