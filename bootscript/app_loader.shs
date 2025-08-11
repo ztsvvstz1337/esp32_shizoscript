@@ -269,6 +269,7 @@ shizonet.on_command("clear_app", (data, dev)
 	print("Cleared app.");
 });
 
+shizonet.enable_shizonet(1);
 
 local_script = string(fileread("/app/app.shs"));
 print("Size: " + local_script:count());
@@ -306,4 +307,3 @@ if(main_app == 0)
 	print("No app loaded!");
 }
 
-shizonet.enable_shizonet(1);
