@@ -1,0 +1,815 @@
+
+gpt_oss_system_prompt =
+"You are ChatGPT, a multilingual large language model trained by OpenAI, which can automatically adapt to the language of the user.\n" +
+"Knowledge cutoff: 2024-06\n" +
+"Current date: {{current_date}}\n" +
+"Reasoning: {{reasoning}}\n" +
+"{{builtins}}" +
+"# Valid channels: analysis, commentary, final. Channel must be included for every message.\n" +
+"Calls to these tools must go to the commentary channel: 'functions'.\n";
+
+gpt_oss_system_prompt_meta =
+"You are ChatGPT Analyzer, a meta AI that analyzes the chat and gives meta information about it.\n" +
+"Knowledge cutoff: 2024-06\n" +
+"Current date: {{current_date}}\n" +
+"# Valid channel: final. Channel must be included for every message.\n" + 
+"# Response Format\nAlways answer in structured json with the field 'reasoning_level'.";
+
+gpt_oss_builtin_tools = "# Tools\n" +
+"## browser\n" +
+"// Tool for browsing.\n" +
+"// Use this to gather realtime data if necessary.\n" +
+"// sources=web (default: web)\n" +
+"namespace browser {\n" +
+"// Searches for information related to query and displays topn results.\n" +
+"type search = (_: {\n" +
+"query: string,\n" +
+"topn?: number, // default: 10\n" +
+"source?: string,\n" +
+"}) => any;\n" +
+"// Fetches data from a link and looks for specified content.\n" +
+"type fetch = (_: {\n" +
+"link: string\n" +
+"look_for: string\n" +
+"}) => any;\n" +
+"} // namespace browser\n";
+
+gpt_oss_builtin_search_def = [
+	query = "&string 1<512",
+	topn = "&integer 1<20",
+	source = "&string 1<128"
+];
+
+gpt_oss_builtin_fetch_def = [
+	link = "&string 1<1024",
+	look_for = "&string 1<2048"
+];
+
+
+class harmony_emulator =
+{
+	sys_prompt = "";
+	prompt = "";
+	reasoning_level = "medium";
+	tools = 0;
+	tools_builtin = "";
+	
+	temperature = 1.0;
+	top_p = 1.0;
+	top_k = 0;
+	
+	on_analysis = 0;
+	on_answer = 0;
+	on_tool = 0;
+	
+	harmony_emulator(uprompt)
+	{
+		system_prompt("Be helpful, concise and direct, try to use tools to retrieve missing or realtime information instead of guessing. Do not guess facts, look them up first.", gpt_oss_system_prompt);
+		
+		if(!uprompt:empty_str())
+			user_prompt(uprompt);
+		//Dont append Assistant prefill yet, as it is appended each step.
+	}
+	
+	enable_builtin_tools()
+	{
+		tools_builtin = gpt_oss_builtin_tools;
+	}
+	
+	disable_builtin_tools()
+	{
+		tools_builtin = "";
+	}
+	
+	system_prompt(dev_msg, sys_msg=gpt_oss_system_prompt)				{ sys_prompt = "<|start|>system<|message|>" + sys_msg + "<|end|><|start|>developer<|message|>" + dev_msg + "{{tools}}<|end|>"; }
+	user_prompt(uprompt)						{ role("user"); message(uprompt); token("end"); }
+	build_prompt() 								{ sys = sys_prompt; sys = sys:replace("{{current_date}}", timestamp()); sys = sys:replace("{{reasoning}}", reasoning_level); sys = sys:replace("{{tools}}", build_tools_prompt()); sys = sys:replace("{{builtins}}", tools_builtin); return sys + prompt; }
+	
+	token(name) 				{ prompt += "<|" + name + "|>"; }
+	message(txt)				{ token("message"); prompt += txt; }
+	role(name) 					{ token("start"); prompt += name; }
+	sys(role_name, msg)			{ role(role_name); token("message"); prompt += msg; token("end"); }
+
+	remove_analysis()
+	{
+		search_start_id = 0;
+		search_end_id = 0;
+		
+		for(1)
+		{
+			search_start_id = prompt:find("<|start|>assistant<|channel|>analysis<|message|>", search_start_id);
+			if(search_start_id == -1)
+				return;
+			search_end_id = prompt:find("<|end|>", search_start_id);
+			if(search_end_id < search_start_id)
+				return;
+			
+			tmp_prompt = prompt:substr(0, search_start_id);
+			tmp_prompt += prompt:substr(search_end_id + count("<|end|>"));
+			prompt = tmp_prompt;
+			search_start_id = search_end_id;
+		}
+	}
+	
+	turns()
+	{
+		occured = 0;
+		start_id = 0;
+		
+		for(1)
+		{
+			start_id = prompt:find("<|start|>user", start_id);
+			if(start_id == -1)
+				return occured;
+			occured++;
+			start_id += count("<|start|>user");
+		}
+	}
+	
+	truncate(num = 1)
+	{
+		for(i = 0; i < num; i++)
+		{
+			first_id = prompt:find("<|start|>user");
+			
+			if(first_id == -1)
+				return;
+			
+			second_id = prompt:find("<|start|>user", first_id+count("<|start|>user"));
+			
+			if(second_id == -1)
+				prompt = "";
+			else
+				prompt = prompt:substr(second_id);
+		}
+	}
+	
+	build_tools_prompt()
+	{
+		if(this.tools:count() == 0)
+			return "";
+		
+		res = "\n# Tools\n";
+		res += "## functions\n";
+		res += "namespace functions {\n";
+		res += removetrails(tools);
+		res += "\n} // namespace functions";
+		
+		return res;
+	}
+};
+
+copy_conv(other)
+{
+	print("copy...");
+	c = harmony_emulator("");
+	c.sys_prompt = other.sys_prompt;
+	c.prompt = other.prompt;
+	c.reasoning_level = other.reasoning_level;
+	c.on_analysis = other.on_analysis;
+	c.on_answer = other.on_answer;
+	c.on_tool = other.on_tool;
+	c.temperature = other.temperature;
+	c.top_k = other.top_k;
+	c.top_p = other.top_p;
+	c.tools = other.tools;
+	c.tools_builtin = other.tools_builtin;
+	return c;
+}
+
+//SIMPLIFIED JSON
+
+//simple_json = [
+//	brand = "&string 1<64",
+//	model = "&string 1<64",
+//	car_type = ["sedan", "SUV", "truck", "coupe"],
+//	car_data = [
+//		engine = "&string",
+//		revs = "&integer1<2000"
+//	],
+//	
+//	car_nicknames = "&uarray(string,16,20)" //array or unique_array (uarray) (type, min, max)
+//];
+
+class gpt_oss =
+{
+	net = 0;
+	model = "default_small";
+	history = 0;
+	
+	temperature = 1.0;
+	top_p = 1.0;
+	top_k = 0;
+	
+	tools = 0;
+	tools_names = 0;
+	
+	max_tokens_stream = 32;
+	max_tokens_channel = 256;
+	max_tokens_json = 32000;
+	
+	gpt_oss()
+	{
+		net = shizonet_client();
+		history = harmony_emulator("");
+	}
+	
+	~gpt_oss()
+	{
+		
+	}
+	
+	text(prompt, options = 0)
+	{
+		if(prompt:empty_str())
+			return "";
+		
+		hist = 0;
+		if(options.no_history == 1)
+			hist = harmony_emulator("");
+		else
+			hist = copy_conv(history);
+		
+		hist.tools = options.tools;
+		hist.user_prompt(prompt);
+		
+		res = run_harmony(hist, options);
+
+		filewrite("gpt_oss_prompt.txt", hist.build_prompt());
+		
+		if(options.no_history == 1)
+			return res;
+		if(options:has_key("add_to_history"))
+		{
+			if(options.add_to_history == 0)
+				return res;
+		}	
+		history.prompt = hist.prompt;
+		return res;
+	}
+	
+	get_json(prompt, schema, options = 0)
+	{
+		if(prompt:empty_str())
+			return 0;
+		
+		hist = 0;
+		if(options.no_history == 1)
+			hist = harmony_emulator("");
+		else
+			hist = copy_conv(history);
+		
+		json_schema = this.simple_json(schema);
+		
+		dev_fmt = "# Response Formats\n";
+		dev_fmt += "# json\n";
+		dev_fmt += "// You must return a JSON object matching the following schema:\n";
+		dev_fmt += json_schema;
+		
+		hist.tools = "";
+		
+		hist.system_prompt(dev_fmt);
+		
+		hist.user_prompt(prompt);
+		
+		options.json_schema = json_schema;
+
+		res = run_harmony(hist, options);
+
+		if(options.no_history == 1)
+			return res;
+		if(options:has_key("add_to_history"))
+		{
+			if(options.add_to_history == 0)
+				return res;
+		}	
+		history.prompt = hist.prompt;
+		return res;
+	}
+	
+	add_tool(tool_name, param_description, return_description, cb, tool_description = "")
+	{
+		tools[tool_name] = [
+				params=param_description,
+				returns=return_description,
+				description=tool_description,
+				cb=cb,
+			];
+		tools_names:push(tool_name);
+	}
+	
+	task(prompt, options = 0)
+	{
+		if(prompt:empty_str())
+			return "";
+		
+		options.tools = tools;
+		
+		return text(prompt, options);
+	}
+	
+	run_harmony(chat_template, options = 0)
+	{		
+		chat_template.remove_analysis();
+		
+		temperature = chat_template.temperature;
+		top_p = chat_template.top_p;
+		top_k = chat_template.top_k;
+		
+		if(options:has_key("json_schema"))
+		{
+			//First, reason once.
+			step_result = run_harmony_step(chat_template, "analysis");
+			
+			chat_template.role("assistant"); 
+			chat_template.token("channel");
+			chat_template.prompt += "final";
+			chat_template.token("message");
+			
+			result = run_cmd("llm_json_" + model, [prompt=chat_template.build_prompt(), json_schema=options.json_schema, max_tokens = max_tokens_json, temperature=temperature]);
+			
+			chat_template.prompt += result.answer_text;
+			chat_template.token("end");
+			
+			if(result.crashed == 1 || result.answer_text:empty_str())
+				return 0;
+			
+			return result;
+		}
+		
+		step_id = 0;
+		
+		force_next_channel = "";
+		
+		for(1)
+		{
+			step_result = run_harmony_step(chat_template, force_next_channel, step_id);
+			force_next_channel = "";
+			
+			if(step_result.finished)
+				return step_result.final;
+			if(step_result.status == "tool")
+				force_next_channel = "analysis";
+			step_id++;
+		}
+	}
+	
+	run_harmony_step(chat_template, force_channel = "", step_id = 0)
+	{
+		//Append system message
+		chat_template.role("assistant"); 
+		chat_template.token("channel");
+		
+		channel = force_channel;
+		
+		temperature = chat_template.temperature;
+		top_p = chat_template.top_p;
+		top_k = chat_template.top_k;
+		
+		if(channel:empty_str())
+		{
+			channel_meta = run_text(chat_template.build_prompt(), [
+				max_tokens=max_tokens_channel,
+				skip_special_tokens=0,
+				stop_on="<|message|>",
+			]);
+			
+			if(channel_meta.stop_token != "<|message|>")
+			{
+				return [status="error", finished=1, error="expected <|message|>"];
+			}
+			
+			channel = removetrails(channel_meta.answer);
+		}
+		
+		if(channel == "analysis")
+		{
+			//set reasoning level.
+			
+			dev_prompt = "You are about to start your analysis.\n";
+			dev_prompt += "Choose an appropriate reasoning level for the next step, choose between 'medium' and 'high'.\n";
+			dev_prompt += "For simple questions and easy to answer queries, the reasoning level can be 'medium', for more complex tasks like web research or multiple previously failed attempts choose 'high'.\n";
+			dev_prompt += "#Response Format\nAlways answer in structured json with the field 'reasoning_level' only!";
+			
+			meta_chat = copy_conv(chat_template);
+			meta_chat.system_prompt(dev_prompt, gpt_oss_system_prompt_meta);
+			meta_chat.prompt += "final";
+			meta_chat.prompt += "<|constrain|>json";
+			meta_chat.token("message");
+			
+			reason_json = [
+				reasoning_level = ["medium", "high"] //exclude low, too dumb
+			];
+			
+			result = run_cmd("llm_json_" + model, [prompt=meta_chat.build_prompt(), json_schema=simple_json(reason_json), max_tokens=max_tokens_json, temperature=temperature]);				
+			if(result.crashed == 1)
+				return 0;
+			
+			rl = lowercase(result.answer.reasoning_level:removetrails());
+		
+			if(rl == "low" || rl == "medium" || rl == "high")
+				chat_template.reasoning_level = rl;
+		}
+		
+		chat_template.prompt += channel;
+		
+		if(channel == "analysis")
+		{
+			chat_template.token("message");
+			
+			text_finished = 0;
+			
+			analysis_str = "";
+			
+			for(text_finished == 0)
+			{		
+				channel_meta = run_text(chat_template.build_prompt(), [
+					max_tokens=max_tokens_stream,
+					skip_special_tokens=0
+				]);
+				
+				chat_template.prompt += channel_meta.answer;
+				analysis_str += channel_meta.answer;
+				
+				if(chat_template.on_analysis:is_function())
+					chat_template.on_analysis(step_id, channel_meta.answer);
+				
+				text_finished = channel_meta.finished;
+			}
+			
+			chat_template.token("end");
+			
+			return [status="analysis", finished=0, analysis=analysis_str];
+		}
+		else(channel:starts("final") || channel == "commentary")
+		{
+			chat_template.token("message");
+			
+			text_finished = 0;
+			
+			final_str = "";
+			
+			for(text_finished == 0)
+			{		
+				channel_meta = run_text(chat_template.build_prompt(), [
+					max_tokens=max_tokens_stream,
+					skip_special_tokens=1
+				]);
+				
+				chat_template.prompt += channel_meta.answer;
+				final_str += channel_meta.answer;
+				
+				if(chat_template.on_answer:is_function())
+				{
+					if(channel:starts("final"))
+						chat_template.on_answer("final", channel_meta.answer);
+					else
+						chat_template.on_answer("comment", channel_meta.answer);
+				}
+				
+				text_finished = channel_meta.finished;
+			}
+			
+			chat_template.token("end");
+			
+			if(channel:starts("final"))
+				return [status="final", finished=1, final=final_str];
+			else
+				return [status="commentary", finished=0, commentary=final_str];
+		}
+		else(channel:starts("commentary") || channel:starts("analysis"))
+		{
+			chat_template.token("message");
+			
+			is_builtin_tool = 0;
+			
+			get_tool_json = 0;
+			
+			if(channel:find("to=browser.") >= 0) //built in tools
+				is_builtin_tool = 1;
+				channel = channel:substr(channel:find("to=browser."));
+				channel = channel:substr(count("to=browser."));
+			else
+				channel = channel:substr(channel:find("to=functions."));
+				channel = channel:substr(count("to=functions."));				
+			
+			channel = channel:substr(0, channel:find(" "));
+			channel = channel:removetrails();
+			//Patch prompt
+			chat_template.prompt = removetrails(chat_template.prompt:substr(0, chat_template.prompt:rfind(" ")));
+			chat_template.prompt += " <|constrain|>json";
+			chat_template.token("message");
+			
+			call_tool_name = channel;
+			
+			if(is_builtin_tool)
+				if(channel == "fetch")
+					get_tool_json = simple_json(gpt_oss_builtin_fetch_def);
+				else
+					get_tool_json = simple_json(gpt_oss_builtin_search_def);
+			else
+				get_tool_json = simple_json(tools[call_tool_name].params);
+					
+			if(get_tool_json:count() == 0)
+				print("Error in getting tool!");
+				print(channel);
+				return 0;	
+			
+			result = run_cmd("llm_json_" + model, [prompt=chat_template.build_prompt(), json_schema=get_tool_json, max_tokens=max_tokens_json, temperature=temperature]);				
+			if(result.crashed == 1)
+				return 0;
+			
+			chat_template.prompt += result.answer_text;
+			
+			chat_template.token("call");
+			
+			if(chat_template.on_tool:is_function())
+				chat_template.on_tool(call_tool_name, result.answer);
+			
+			tool_result = 0;
+			
+			if(is_builtin_tool)
+			{
+				if(call_tool_name == "fetch")
+					tool_result = web_fetch(result.answer);
+				else
+					tmp_results = run_cmd("web_query", [query_str=result.answer.query, max_results=result.answer.topn]);
+					tool_result = tmp_results.result;
+			}
+			else
+				tool_result = tools[call_tool_name].cb(result.answer);
+			
+			if(!tool_result:is_json())
+				tool_result = [result=tool_result];
+			
+			//<|start|>functions.get_weather to=assistant<|channel|>commentary<|message|>{"sunny": true, "temperature": 20}<|end|>
+			
+			chat_template.token("start");
+			if(is_builtin_tool)
+				chat_template.prompt += "browser." + call_tool_name + " to=assistant";
+			else
+				chat_template.prompt += "functions." + call_tool_name + " to=assistant";
+			chat_template.token("channel");
+			chat_template.prompt += "commentary";
+			chat_template.token("message");
+			chat_template.prompt += to_json_string(tool_result, 1);
+			chat_template.token("end");
+			
+			return [status="tool", finished=0, tool=call_tool_name];
+		}
+
+		error(channel + " unknown channel!");
+		return [status="error", finished=1, error=channel+" unknown channel"];
+	}
+	
+	web_fetch(args)
+	{
+		web_res = run_cmd("web_summary", [url=args.link]);
+		web_res_txt = web_res.web_texts;
+		web_res_links = web_res.web_links;
+		
+		if(web_res_txt:empty_str() || web_res_txt:starts("Error: "))
+		{
+			if(!args.link:starts("http"))
+			{
+				web_res = run_cmd("web_summary", [url="http://"+args.link]);
+				web_res_txt = web_res.web_texts;
+				web_res_links = web_res.web_links;
+				if(web_res_txt:empty_str() || web_res_txt:starts("Error: "))
+				{
+					web_res = run_cmd("web_summary", [url="https://"+args.link]);
+					web_res_txt = web_res.web_texts;
+				}
+			}
+		}
+		
+		chunks = web_res_txt:split("<<EOC>>");
+			
+		final_links = web_res_links:replace("<|EOT|>", " ");
+		
+		final_chunk = "";
+		
+		for(txt :: chunks)
+		{
+			txt = txt:removetrails();
+				
+			if(txt:empty_str())
+				continue;
+			if(txt:count() < 32)
+				continue;
+			
+			final_chunk += txt + nl(3);
+		}
+		
+		if(final_chunk:count() < 32)
+			return "website returned no data.";	
+		
+		if(final_chunk:count() > 10000)
+		{		
+			final_chunk = final_chunk:substr(0, 10000);
+			final_chunk = final_chunk:substr(0,final_chunk:find_last(" "));
+		}
+		
+		final_chunk = summarize_text(final_chunk, args.look_for);
+		
+		if(final_links:count() > 3000)
+		{		
+			final_links = final_links:substr(0, 3000);
+		}
+		
+		return [links=final_links, text=final_chunk];
+	}
+	
+	summarize_text(text, look_for)
+	{
+		return text("Summarize the following text according to the given criteria, write nothing else.\n\n" +
+				"Criteria:\n" + look_for + "\n\n" +
+				"Text:\n" + 
+				text + "\n\n" +
+				"Summary:",
+				[no_history=1]
+			);
+	}
+	
+	run_text(raw_prompt, options=0)
+	{
+		run_args = [
+			prompt=raw_prompt,
+			temperature=temperature,
+			top_p=top_p,
+			top_k=top_k
+		];
+		for(i = 0; i < options:count(); i++)
+		{
+			run_args[options:key(i)] = options[i];
+		}	
+		if(run_args.stop_on:is_string())
+			tmp_str = run_args.stop_on;
+			run_args.stop_on = ["<|end|>", tmp_str];
+		else
+			run_args.stop_on:push("<|end|>");
+		res = run_cmd("llm_text_" + model, run_args);
+		if(res.stop_token == "<|end|>")
+			res.finished = 1;
+		return res;
+	}
+	
+	token_count(str)
+	{
+		return run_cmd("llm_count_" + model, [prompt=str]);			
+	}
+	
+	run_cmd(cmd, params)
+	{
+		//return run_wq(cmd,params);
+		res = 0;
+		params.cmd = cmd;
+		for(res == 0)
+		{
+			res = net.get("run_wq", params);
+			if(res == 0)
+			{
+				sleep(1000);
+			}
+		}
+		return res;
+	}
+
+	fix_indent(code)
+	{
+		code_lines = code:split("\n");
+		code_result = "";
+		first_indent = -1;
+		for(it :: code_lines)
+		{
+			if(it:empty_str())
+				continue;
+			if(first_indent == -1)
+				first_indent = indentation(it);
+			code_result += it:substr(first_indent) + "\n";
+		}
+		
+		return code_result;
+	}
+	
+	json_result_to_text(#json_object)
+	{
+		str = "### " + json_object.tool_name + "\n";
+		
+		if(json_object.Results:is_json())
+		{
+			res = #json_object.Results;
+			for(i = 0; i < res:count(); i++)
+			{
+				str += "--- " + res:key(i) + "\n";
+				if(res[i]:is_json())
+					str += to_json_string(res[i],1) + "\n\n";
+				else
+					str += removetrails(res[i]) + "\n\n";
+			}
+		}
+		else
+		{
+			str += json_object.Results;
+		}
+		
+		return removetrails(str);
+	}
+	
+	default_key(obj, key_name, key_value)
+	{
+		if(!obj:has_key(key_name))
+			obj[key_name] = key_value;
+			return key_value;
+		return obj[key_name];
+	}
+	
+	simple_json(#json)
+	{
+		if(!json:is_json())
+			return $json;
+		
+		json_schema = [type = "object"];
+
+		for(i = 0; i < json:count(); i++)
+		{
+			json_key = json:key(i);
+			
+			if(json[i]:is_string())
+			{
+				str_type = json[i];
+				if(str_type[0] == "&")
+					json_schema.required:push(json_key);
+					str_type = str_type:substr(1);
+				
+				str_type = str_type:split(" ");
+				
+				if(str_type:count() >= 2)
+					min_max_values = str_type[1]:split("<");
+					if(str_type[0]:starts("string"))
+						json_schema.properties[json_key].minLength = int(min_max_values[0]);
+						json_schema.properties[json_key].maxLength = int(min_max_values[1]);
+					else(str_type[0]:starts("integer"))
+						json_schema.properties[json_key].minimum = int(min_max_values[0]);
+						json_schema.properties[json_key].maximum = int(min_max_values[1]);
+					else
+						json_schema.properties[json_key].minimum = float(min_max_values[0]);
+						json_schema.properties[json_key].maximum = float(min_max_values[1]);
+				
+				if(str_type[0]:starts("array") || str_type[0]:starts("uarray"))
+				{
+					array_data = str_type[0]:extract_string("(",")");
+					array_data = array_data:split(",");
+					json_schema.properties[json_key].type = "array";
+					json_schema.properties[json_key].items.type = array_data[0];
+					json_schema.properties[json_key].minItems = int(array_data[1]);
+					json_schema.properties[json_key].maxItems = int(array_data[2]);
+					
+					if(str_type[0]:starts("uarray"))
+						json_schema.properties[json_key].uniqueItems = 1;
+				}
+				else
+					json_schema.properties[json_key].type = str_type[0];
+			}
+			else(json[i]:is_list())
+			{
+				json_schema.required:push(json_key);
+				json_schema.properties[json_key].type = "string";
+				json_schema.properties[json_key].enum = json[i];
+			}
+			else(json[i]:is_json())
+			{
+				json_schema.required:push(json_key);
+				json_schema.properties[json_key] = this.simple_json(json[i]);
+			}
+		}
+		
+		return json_schema;
+	}
+};
+
+global create_gpt_oss()
+{
+	return gpt_oss();
+}
+
+test_gpt_oss()
+{
+	set_auto_reload(1);
+
+	test = gpt_oss();
+	test.history.enable_builtin_tools();
+	for(1)
+	{
+		test.history.prompt = "";
+		print(test.task("whats the weather in halle saale?"));
+		//print(test.history.build_prompt());
+		//sleep(5000000);
+	}
+	//print(test.history.build_prompt());
+}
+
+
+//test_gpt_oss();
+
+print("---GPT OSS READY---");

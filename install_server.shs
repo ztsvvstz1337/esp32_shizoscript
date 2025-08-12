@@ -188,7 +188,7 @@ create_entry(dev)
 			for(data :: app.data_paths)
 			{
 				print(dev.get("upload", [
-					name="/app/" + os.file_name(data) + "." + os.file_ext(data),
+					name="/data/" + os.file_name(data) + "." + os.file_ext(data),
 					data=fileread(data)
 				]));
 			}

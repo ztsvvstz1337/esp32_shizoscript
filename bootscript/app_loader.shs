@@ -249,10 +249,12 @@ shizonet.on_command("set_app_config", (data, dev)
 		print(data);
 	}
 });
+
 shizonet.on_get("get_app_config", (data, dev)
 {
 	return app_config;
 });
+
 shizonet.on_command("clear_app", (data, dev)
 {
 	fl = fs_list_files();
@@ -271,12 +273,20 @@ shizonet.on_command("clear_app", (data, dev)
 
 shizonet.enable_shizonet(1);
 
-local_script = string(fileread("/app/app.shs"));
-print("Size: " + local_script:count());
+app_files = fs_list_files();
+app_sources = 0;
 
-main_app = 0;
+for(app_src :: app_files)
+{
+	if(app_src:starts("/app/") && app_src:find(".shs") >= 0)
+	{
+		app_sources:push(app_src);
+	}
+}
 
-if(!local_script:empty_str())
+loaded_apps = 0;
+
+if(app_sources:count() > 0)
 {
 	last_state = read_crash();
 	
@@ -293,7 +303,23 @@ if(!local_script:empty_str())
 	
 	write_crash(last_state+1);
 		
-	main_app = loadmodule(local_script, 0, 1);
+	main_entries = 0;
+		
+	for(app_src :: app_sources)
+	{
+		print("loading: " + app_src);
+		main_app = loadmodule(string(fileread(app_src)), 0, 1);
+		loaded_apps:push(main_app);
+		if(main_app.has("main"))
+			main_entries:push(main_app.get("main"));
+	}
+		
+		
+	print("---MAIN ENTRIES---");
+	for(main_entry :: main_entries)
+	{
+		main_entry();
+	}
 	
 	//After 30 seconds, consider the script "stable" and reset the crash counter...
 	print("script evaluator(): init");
@@ -301,8 +327,7 @@ if(!local_script:empty_str())
 	print("script evaluator(): script stable, resetting crash counter.");
 	write_crash(0);
 }
-
-if(main_app == 0)
+else
 {
 	print("No app loaded!");
 }

@@ -1,2 +1,26 @@
 
-print("hello world test");
+global create_gpt_oss = 0;
+
+main()
+{
+	print("hello from main!");
+	
+	sleep(5000);
+	
+	print("---TESTING GPT OSS---");
+	
+	llm = create_gpt_oss();
+	
+	llm.history.on_analysis = (stepid, txt)
+	{
+		print(txt);
+	};
+	
+	llm.history.on_answer = (stepid, txt)
+	{
+		print(txt);
+	};
+	
+	print(llm.text("Who are you?"));
+	print("FINISHED.");
+}
