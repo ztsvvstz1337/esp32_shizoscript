@@ -122,6 +122,11 @@ class WebPortal =
 			closed_last_section = 0;
 		return str;
 	}
+	
+	add_html(path)
+	{
+		return string(fileread(path));
+	}
 
 	add_presets()
 	{

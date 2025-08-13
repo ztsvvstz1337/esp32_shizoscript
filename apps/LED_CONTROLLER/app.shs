@@ -43,3 +43,10 @@ main()
 	print(llm.text("Who are you?"));
 	print("FINISHED.");
 }
+
+webui.add_site("/segments", ()
+{	
+	page = webui.add_html("/data/segment_editor.html");
+	
+	return page;
+});
