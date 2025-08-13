@@ -3,10 +3,29 @@ global create_gpt_oss = 0;
 
 main()
 {
-	print("hello from main!");
+	//print("hello from main!");
 	
-	sleep(5000);
+	print("---STARTING LED DRIVER---");
 	
+	driver = led_driver([21], 171*2);
+	
+	//TESTING:
+	for(1)
+	{
+		for(i = 0; i < 16; i++)
+		{
+			driver.set_pixel(i, 255,0,0);
+			driver.set_pixel(i+16, 0,255,0);
+			driver.set_pixel(i+32, 0,0,255);
+		}
+		
+		driver.show();
+		
+		sleep(10);
+	}
+	
+	//driver.enable_artnet();
+
 	print("---TESTING GPT OSS---");
 	
 	llm = create_gpt_oss();
