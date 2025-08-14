@@ -1,0 +1,178 @@
+<section id="animation-editor">
+  <h2>Group Animations</h2>
+  <div id="group-animation-container"></div>
+</section>
+
+<style>
+  #animation-editor {
+    padding: 0.2rem;
+  }
+  .group-card {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 0.2rem;
+    margin-bottom: 1rem;
+    background: #100d0d;
+  }
+  .group-header {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+  .anim-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .anim-row label {
+    flex: 0 0 80px;
+  }
+  .anim-row select, .anim-row input[type="color"], .anim-row input[type="number"], .anim-row input[type="range"] {
+    flex: 1;
+  }
+  .anim-row input[type="checkbox"] {
+    transform: scale(1.2);
+  }
+</style>
+
+<script>
+let animations = {};
+let effectsList = [];
+
+function initAnimations() {
+  Promise.all([
+    fetch('/segments_get', { method: 'POST' }).then(r => r.json()),
+    //fetch('/effects_get', { method: 'POST' }).then(r => r.json())
+  ])
+  .then(([segmentsData, effectsData]) => {
+    let groups = new Set();
+    (segmentsData || []).forEach(output => {
+      (output.segments || []).forEach(seg => {
+        if (seg.group) groups.add(seg.group);
+      });
+    });
+    effectsList = effectsData || [];
+    buildAnimationUI(Array.from(groups));
+  })
+  .catch(err => console.error('Init animations failed:', err));
+}
+
+function buildAnimationUI(groups) {
+  const container = document.getElementById('group-animation-container');
+  container.innerHTML = '';
+  
+  groups.forEach(group => {
+    if (!animations[group]) {
+      animations[group] = {
+        effect: '',
+        speed: 128,
+        intensity: 128,
+        direction: 'forward',
+        color1: '#ffffff',
+        color2: '#000000',
+        palette: '',
+        enabled: true
+      };
+    }
+    
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    
+    card.innerHTML = `
+      <div class="group-header">Group: ${group}</div>
+      
+      <div class="anim-row">
+        <label>Enabled</label>
+        <input type="checkbox" data-group="${group}" data-key="enabled" ${animations[group].enabled ? 'checked' : ''}>
+      </div>
+
+      <div class="anim-row">
+        <label>Effect</label>
+        <select data-group="${group}" data-key="effect">
+          ${effectsList.map(e => `<option value="${e.id}" ${animations[group].effect === e.id ? 'selected' : ''}>${e.name}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="anim-row">
+        <label>Speed</label>
+        <input type="range" min="0" max="255" value="${animations[group].speed}" data-group="${group}" data-key="speed">
+      </div>
+
+      <div class="anim-row">
+        <label>Intensity</label>
+        <input type="range" min="0" max="255" value="${animations[group].intensity}" data-group="${group}" data-key="intensity">
+      </div>
+
+      <div class="anim-row">
+        <label>Direction</label>
+        <select data-group="${group}" data-key="direction">
+          <option value="forward" ${animations[group].direction === 'forward' ? 'selected' : ''}>Forward</option>
+          <option value="reverse" ${animations[group].direction === 'reverse' ? 'selected' : ''}>Reverse</option>
+        </select>
+      </div>
+
+      <div class="anim-row">
+        <label>Color 1</label>
+        <input type="color" value="${animations[group].color1}" data-group="${group}" data-key="color1">
+      </div>
+
+      <div class="anim-row">
+        <label>Color 2</label>
+        <input type="color" value="${animations[group].color2}" data-group="${group}" data-key="color2">
+      </div>
+
+      <div class="anim-row">
+        <label>Palette</label>
+        <select data-group="${group}" data-key="palette">
+          <option value="">Default</option>
+          ${(effectsList.palettes || []).map(p => `<option value="${p.id}" ${animations[group].palette === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+        </select>
+      </div>
+    `;
+    
+    container.appendChild(card);
+  });
+  
+  attachAnimationListeners();
+}
+
+function attachAnimationListeners() {
+  document.querySelectorAll('#group-animation-container [data-group]').forEach(el => {
+    el.addEventListener('input', e => {
+      const group = e.target.dataset.group;
+      const key = e.target.dataset.key;
+      animations[group][key] = (e.target.type === 'checkbox') ? e.target.checked : e.target.value;
+      sendAnimationsToESP();
+    });
+  });
+}
+
+let sendingAnimations = false;
+let sendAnimationsPending = false;
+function sendAnimationsToESP() {
+  if (sendingAnimations) {
+    sendAnimationsPending = true;
+    return;
+  }
+  
+  sendingAnimations = true;
+  fetch('/animations_update', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(animations)
+  })
+  .then(r => r.text())
+  .then(txt => console.log('Animations updated:', txt))
+  .catch(err => console.error('Animation send failed:', err))
+  .finally(() => {
+    sendingAnimations = false;
+    if (sendAnimationsPending) {
+      sendAnimationsPending = false;
+      sendAnimationsToESP();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initAnimations);
+</script>

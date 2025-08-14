@@ -3,7 +3,7 @@ global create_gpt_oss = 0;
 
 driver = 0;
 
-led_segments = from_json_string(string(fileread("/app/segments.json")));
+led_segments = from_json_string(string(fileread("/static/segments.json")));
 
 
 main()
@@ -13,8 +13,6 @@ main()
 	print("---STARTING LED DRIVER---");
 	
 	return;
-	
-	//driver.enable_artnet();
 
 	print("---TESTING GPT OSS---");
 	
@@ -38,7 +36,7 @@ main()
 if(led_segments:count() == 0)
 {
 	led_segments = [
-		[name="Output 1", pin=21, segments=[[name="Segment 1", width=10,count=1,color="#ffffff",brightness=100,enabled=1]]]
+		[name="Output 1", pin=21, segments=[[name="Segment 1", width=10,count=1,color="#ff0000",brightness=100,enabled=1,group="Default"]]]
 	];
 	
 	print(led_segments);
@@ -58,15 +56,19 @@ get_color(str)
 	return [r=r,g=g,b=b];
 }
 
+has_solo_segments = 0;
 get_leds_out_count()
 {
 	max_outs = 0;
+	has_solo_segments = 0;
 	for(#it :: led_segments)
 	{
 		seg_count = 0;
 		for(#seg :: it.segments)
 		{
 			seg_count += seg.width * max(1,seg.count);
+			if(seg.testout)
+				has_solo_segments = 1;
 		}
 		if(seg_count > max_outs)
 			max_outs = seg_count;
@@ -98,39 +100,33 @@ init_driver()
 	if(driver == 0)
 	{
 		driver = led_driver(pins, max_output, 3);
+		driver.enable_artnet();
 		driver.show();
 	}
 	else
 	{
+		driver.blackout();
+		driver.show_now();
 		driver.init_leds(pins, max_output, 3);
 	}
 }
+
+// # MAIN PAGE
+webui.on_main_page = ()
+{
+	page = webui.add_section("Animation & Control");
+	page += webui.add_html("/data/animation_editor.html");
+	return page;
+};
+
+
+// # SEGMENTS
 
 last_num_outputs = -1;
 last_max_leds = -1;
 
 update_segments()
 {
-	driver.set_target("SMOOTHBUFFER");
-	
-	output_id = 0;
-	for(#it :: led_segments)
-	{
-		segment_id = 0;
-		current_index = 0;
-		for(#seg :: it.segments)
-		{
-			brightness = seg.brightness / 255.0;
-			col = get_color(seg.color);
-			
-			driver.set_pixels(output_id, current_index, seg.width * max(1,seg.count), col.r*brightness*255.0, col.g*brightness*255.0, col.b*brightness*255.0);
-			current_index += seg.width * max(1,seg.count);
-			segment_id++;
-		}
-		
-		output_id++;
-	}
-	
 	new_max_leds = get_leds_out_count();
 	
 	if(last_num_outputs == -1)
@@ -147,6 +143,29 @@ update_segments()
 	
 	last_max_leds = new_max_leds;
 	last_num_outputs = led_segments:count();
+	
+	driver.set_target("SMOOTHBUFFER");
+	
+	output_id = 0;
+	for(#it :: led_segments)
+	{
+		segment_id = 0;
+		current_index = 0;
+		for(#seg :: it.segments)
+		{
+			brightness = seg.brightness / 255.0;
+			col = get_color(seg.color);
+			
+			if(has_solo_segments && !seg.testout)
+				brightness = 0;
+			
+			driver.set_pixels(output_id, current_index, seg.width * max(1,seg.count), col.r*brightness*255.0, col.g*brightness*255.0, col.b*brightness*255.0);
+			current_index += seg.width * max(1,seg.count);
+			segment_id++;
+		}
+		
+		output_id++;
+	}
 }
 
 webui.add_site("/segments", ()
@@ -163,7 +182,7 @@ webui.add_post("/segments_update", (post_data)
 	if(segments_json:count() == 0)
 		return;
 
-	filewrite("/app/segments.json", to_json_string(segments_json));
+	filewrite("/static/segments.json", to_json_string(segments_json));
 	
 	//print(segments_json);
 	

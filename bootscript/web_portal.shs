@@ -69,6 +69,8 @@ class WebPortal =
 	server = 0;
 	closed_last_section = 1;
 	
+	on_main_page = 0;
+	
 	WebPortal()
 	{
 		server = webserver();
@@ -261,6 +263,14 @@ class WebPortal =
 			this.server.send(200, "application/json", string(ret));
 		});
 	}
+	
+	
+	add_main_page_stub()
+	{
+		if(on_main_page:is_function())
+			return on_main_page();
+		return "";
+	}
 };
 
 global webui = WebPortal();
@@ -318,7 +328,7 @@ webui.add_site("/settings", ()
 
 webui.add_site("/", ()
 {
-	page = webui.add_presets();
+	page = webui.add_main_page_stub();
 	page += webui.add_section("Status");
 	page += webui.add_status();
 	

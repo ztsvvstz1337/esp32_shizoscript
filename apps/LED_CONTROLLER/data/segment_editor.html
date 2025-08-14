@@ -163,7 +163,9 @@ function addOutput() {
 function addSegment(outputIndex) {
   outputs[outputIndex].segments.push({
     name: "Segment",
+	group: "Default",
     width: 10,
+	height: 1,
     count: 1,
     color: "#000000",
     brightness: 255,
@@ -276,9 +278,11 @@ function renderOutputs() {
 			<label><input type="checkbox" ${seg.testout ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].testout=this.checked">Test Output</label>
           </div>
           <label>Width: <input type="number" value="${seg.width}" min="1" oninput="outputs[${oi}].segments[${si}].width=parseInt(this.value)"></label>
-          <label>Count: <input type="number" value="${seg.count}" min="1" oninput="outputs[${oi}].segments[${si}].count=parseInt(this.value)"></label>
+          <label>Height: <input type="number" value="${seg.height}" min="1" oninput="outputs[${oi}].segments[${si}].height=parseInt(this.value)"></label>         
+		  <label>Count: <input type="number" value="${seg.count}" min="1" oninput="outputs[${oi}].segments[${si}].count=parseInt(this.value)"></label>
           <label>Brightness: <input type="range" min="0" max="255" value="${seg.brightness}" oninput="outputs[${oi}].segments[${si}].brightness=parseInt(this.value)"></label>
           <label>Color: <input type="color" value="${seg.color}" oninput="outputs[${oi}].segments[${si}].color=this.value"></label>
+		  <label>Group: <input type="text" value="${seg.group}" oninput="outputs[${oi}].segments[${si}].group=this.value"></label>
         </div>
       `;
 
