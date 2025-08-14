@@ -1,7 +1,7 @@
 
 //Some definitions....
 
-header_buttons = [
+global header_buttons = [
 	"HOME" = "/",
 	"SETTINGS" = "/settings",
 	"CONSOLE" = "/console"
@@ -222,6 +222,12 @@ class WebPortal =
 		return add_ctrl("checkbox", name, cb2, options);
 	}
 
+	//Add header buttons
+	add_header(name, url)
+	{
+		header_buttons[name] = url;
+	}
+
 	//Add new sites
 	
 	add_site(url, cb)
@@ -233,6 +239,26 @@ class WebPortal =
 			page += this.add_section("");
 			page += this.add_end();	
 			this.server.send(200, "text/html", page);
+		});
+	}
+	
+	//Receive post data from webui
+	add_post(url, cb)
+	{
+		server.post(url, [this, cb](post_data)
+		{
+			cb(post_data);
+			this.server.send(200, "text/html", "success");
+		});
+	}
+
+	//Webui request json data from us
+	add_json(url, cb)
+	{
+		server.post(url, [this, cb](post_data)
+		{
+			ret = cb(post_data);
+			this.server.send(200, "application/json", string(ret));
 		});
 	}
 };

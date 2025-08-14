@@ -1,14 +1,12 @@
-<div class="container">
-  <div class="section open">
-    <h2>LED Segment Editor</h2>
-    <div class="controls">
-      <div id="outputs"></div>
-      <button onclick="addOutput()">+ Add Output</button>
-      <h3 style="color: var(--neon-dim); margin-top:1rem;">Generated JSON</h3>
-      <pre id="json-output"></pre>
-    </div>
-  </div>
+
+<div class="section open">
+<h2>LED Segment Editor</h2>
+<div class="controls">
+  <div id="outputs"></div>
+  <button onclick="addOutput()">+ Add Output</button>
 </div>
+</div>
+
 
 <style>
   .segment-card {
@@ -74,8 +72,84 @@
   }
 </style>
 
+<style>
+  /* optional: prevents iOS from interpreting drag handle gestures as scroll */
+  .drag-handle { touch-action: none; }
+</style>
+
 <script>
 let outputs = [];
+
+/* Call this right after you create each segCard in renderOutputs() */
+function wireDrag(segCard, oi, si) {
+  const handle = segCard.querySelector('.drag-handle');
+
+  // Arm-only-on-handle: card is NOT draggable unless the handle was pressed
+  const arm = () => {
+    segCard.setAttribute('draggable', 'true');
+    segCard.dataset.dragArmed = '1';
+  };
+  const disarm = () => {
+    segCard.removeAttribute('draggable');
+    delete segCard.dataset.dragArmed;
+  };
+
+  handle.addEventListener('pointerdown', (e) => {
+    arm();
+    // avoid selecting text when starting a drag
+    e.preventDefault();
+  });
+
+  // If user taps without actually dragging, clean up
+  document.addEventListener('pointerup', disarm, { passive: true });
+
+  segCard.addEventListener('dragstart', (e) => {
+    // If not armed by handle, cancel
+    if (!segCard.dataset.dragArmed) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', JSON.stringify({ oi, si }));
+    segCard.classList.add('dragging');
+  });
+
+  segCard.addEventListener('dragend', () => {
+    segCard.classList.remove('dragging');
+    disarm();
+  });
+
+  // Allow dropping on any segment card in the same output
+  segCard.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+
+  segCard.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+    if (data.oi !== oi) return; // only within same output
+
+    const from = data.si;
+    const toCard = segCard;
+    const to = parseInt(toCard.dataset.segmentIndex, 10);
+
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return;
+
+    const segs = outputs[oi].segments;
+    const moved = segs.splice(from, 1)[0];
+
+    // Insert BEFORE the drop target (classic behavior).
+    // If moving down (from < to), the target index shifts left by 1 after removal.
+    let insertAt = to;
+    if (from < to) insertAt = to - 1;
+
+    segs.splice(insertAt, 0, moved);
+
+    renderOutputs(); // re-render to refresh dataset indices
+    // (your JSON POST stays wherever you already do it)
+  });
+}
 
 function addOutput() {
   outputs.push({
@@ -91,8 +165,8 @@ function addSegment(outputIndex) {
     name: "Segment",
     width: 10,
     count: 1,
-    color: "#ffffff",
-    brightness: 100,
+    color: "#000000",
+    brightness: 255,
     enabled: true,
     reverse: false,
     mirror: false
@@ -105,9 +179,68 @@ function deleteSegment(outputIndex, segmentIndex) {
   renderOutputs();
 }
 
+function initOutputs() {
+  fetch('/segments_get', { method: 'POST' })
+    .then(res => {
+      if (!res.ok) throw new Error("Failed to get segments");
+      return res.json(); // ESP should return the array directly
+    })
+    .then(data => {
+      outputs = Array.isArray(data) ? data : [];
+      renderOutputs(false); // render without sending back immediately
+    })
+    .catch(err => {
+      console.error("Error fetching segments from ESP:", err);
+      outputs = [];
+      renderOutputs(false);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", initOutputs);
+
+let sending = false;
+let sendPending = false;
+
+function sendToESP() {
+  if (sending) {
+    sendPending = true; // mark that we need to send again
+    return;
+  }
+
+  sending = true;
+  fetch('/segments_update', { // replace with your ESP endpoint
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(outputs)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("ESP update failed: " + res.status);
+    return res.text();
+  })
+  .then(txt => console.log("ESP responded:", txt))
+  .catch(err => console.error("Error sending to ESP:", err))
+  .finally(() => {
+    sending = false;
+    if (sendPending) {
+      sendPending = false;
+      sendToESP(); // send latest state once more
+    }
+  });
+}
+
+
+function attachChangeHandler(input, callback) {
+  const eventType = (input.type === "checkbox" || input.type === "radio") ? "change" : "input";
+  input.addEventListener(eventType, callback);
+}
+
 function renderOutputs() {
   const outputsDiv = document.getElementById("outputs");
-  outputDiv.innerHTML = `
+  outputsDiv.innerHTML = "";
+  outputs.forEach((output, oi) => {
+    const outputDiv = document.createElement("div");
+    outputDiv.className = "output";	
+	outputDiv.innerHTML = `
 	  <div class="output-header" style="display:flex; gap:1rem; align-items:center; margin-bottom:0.5rem;">
 		<label style="flex:1;">
 		  Name:
@@ -121,9 +254,7 @@ function renderOutputs() {
 		</label>
 	  </div>
 	`;
-  outputs.forEach((output, oi) => {
-    const outputDiv = document.createElement("div");
-    outputDiv.className = "output";
+	
     output.segments.forEach((seg, si) => {
       const segCard = document.createElement("div");
       segCard.className = "segment-card";
@@ -142,6 +273,7 @@ function renderOutputs() {
             <label><input type="checkbox" ${seg.enabled ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].enabled=this.checked">Enabled</label>
             <label><input type="checkbox" ${seg.reverse ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].reverse=this.checked">Reverse</label>
             <label><input type="checkbox" ${seg.mirror ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].mirror=this.checked">Mirror</label>
+			<label><input type="checkbox" ${seg.testout ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].testout=this.checked">Test Output</label>
           </div>
           <label>Width: <input type="number" value="${seg.width}" min="1" oninput="outputs[${oi}].segments[${si}].width=parseInt(this.value)"></label>
           <label>Count: <input type="number" value="${seg.count}" min="1" oninput="outputs[${oi}].segments[${si}].count=parseInt(this.value)"></label>
@@ -150,11 +282,30 @@ function renderOutputs() {
         </div>
       `;
 
+		segCard.querySelectorAll("input").forEach(input => {
+		  attachChangeHandler(input, () => {
+			const key = input.name; // must match the property in outputs[oi].segments[si]
+			if (input.type === "checkbox") {
+			  outputs[oi].segments[si][key] = input.checked;
+			} else if (input.type === "number") {
+			  outputs[oi].segments[si][key] = parseInt(input.value);
+			} else {
+			  outputs[oi].segments[si][key] = input.value;
+			}
+			sendToESP();
+		  });
+		});
+
       const dragHandle = segCard.querySelector(".drag-handle");
       dragHandle.addEventListener("mousedown", () => {
         segCard.draggable = true;
       });
       segCard.addEventListener("dragstart", e => {
+		console.log(e.target.closest);
+		if (!e.target.closest('.drag-handle')) {
+			e.preventDefault();
+			return;
+		  }
         e.dataTransfer.setData("text/plain", JSON.stringify({ oi, si }));
       });
       segCard.addEventListener("dragover", e => e.preventDefault());
@@ -179,6 +330,7 @@ function renderOutputs() {
     outputsDiv.appendChild(outputDiv);
   });
 
-  document.getElementById("json-output").textContent = JSON.stringify(outputs, null, 2);
+  sendToESP();
+  console.log("Update!");
 }
 </script>

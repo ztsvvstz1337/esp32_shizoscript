@@ -1,28 +1,18 @@
 
 global create_gpt_oss = 0;
 
+driver = 0;
+
+led_segments = from_json_string(string(fileread("/app/segments.json")));
+
+
 main()
 {
 	//print("hello from main!");
 	
 	print("---STARTING LED DRIVER---");
 	
-	driver = led_driver([21], 171*2);
-	
-	//TESTING:
-	for(1)
-	{
-		for(i = 0; i < 16; i++)
-		{
-			driver.set_pixel(i, 255,0,0);
-			driver.set_pixel(i+16, 0,255,0);
-			driver.set_pixel(i+32, 0,0,255);
-		}
-		
-		driver.show();
-		
-		sleep(10);
-	}
+	return;
 	
 	//driver.enable_artnet();
 
@@ -44,9 +34,151 @@ main()
 	print("FINISHED.");
 }
 
+//First ever init
+if(led_segments:count() == 0)
+{
+	led_segments = [
+		[name="Output 1", pin=21, segments=[[name="Segment 1", width=10,count=1,color="#ffffff",brightness=100,enabled=1]]]
+	];
+	
+	print(led_segments);
+}
+
+get_color(str)
+{
+	r = 0;
+	g = 0;
+	b = 0;
+	if(str[0] == "#")
+	{
+		r = hex_to_char(str:substr(1,2)) / 255.0;
+		g = hex_to_char(str:substr(3,2)) / 255.0;
+		b = hex_to_char(str:substr(5,2)) / 255.0;
+	}
+	return [r=r,g=g,b=b];
+}
+
+get_leds_out_count()
+{
+	max_outs = 0;
+	for(#it :: led_segments)
+	{
+		seg_count = 0;
+		for(#seg :: it.segments)
+		{
+			seg_count += seg.width * max(1,seg.count);
+		}
+		if(seg_count > max_outs)
+			max_outs = seg_count;
+	}
+	
+	return int(max_outs);
+}
+
+init_driver()
+{
+	pins = 0;
+	max_output = get_leds_out_count();
+	
+	for(it :: led_segments)
+	{
+		pins:push(it.pin);	
+	}
+	
+	print("init driver with pins:");
+	print(pins);
+	print("And max led out: " + max_output);
+	print("LED Channels: " + 3);
+	
+	if(max_output == 0)
+		return;
+	if(pins:count() == 0)
+		return;
+	
+	if(driver == 0)
+	{
+		driver = led_driver(pins, max_output, 3);
+		driver.show();
+	}
+	else
+	{
+		driver.init_leds(pins, max_output, 3);
+	}
+}
+
+last_num_outputs = -1;
+last_max_leds = -1;
+
+update_segments()
+{
+	driver.set_target("SMOOTHBUFFER");
+	
+	output_id = 0;
+	for(#it :: led_segments)
+	{
+		segment_id = 0;
+		current_index = 0;
+		for(#seg :: it.segments)
+		{
+			brightness = seg.brightness / 255.0;
+			col = get_color(seg.color);
+			
+			driver.set_pixels(output_id, current_index, seg.width * max(1,seg.count), col.r*brightness*255.0, col.g*brightness*255.0, col.b*brightness*255.0);
+			current_index += seg.width * max(1,seg.count);
+			segment_id++;
+		}
+		
+		output_id++;
+	}
+	
+	new_max_leds = get_leds_out_count();
+	
+	if(last_num_outputs == -1)
+		last_num_outputs=led_segments:count();
+	if(last_max_leds == -1)
+		last_max_leds = new_max_leds;
+	
+	if(last_max_leds != new_max_leds || last_num_outputs != led_segments:count())
+	{
+		//Re-init driver...
+		print("---REINIT DRIVER---");
+		init_driver();
+	}
+	
+	last_max_leds = new_max_leds;
+	last_num_outputs = led_segments:count();
+}
+
 webui.add_site("/segments", ()
 {	
 	page = webui.add_html("/data/segment_editor.html");
 	
 	return page;
 });
+
+webui.add_post("/segments_update", (post_data)
+{	
+	segments_json = from_json_string(post_data.plain);
+
+	if(segments_json:count() == 0)
+		return;
+
+	filewrite("/app/segments.json", to_json_string(segments_json));
+	
+	//print(segments_json);
+	
+	led_segments = segments_json;
+	
+	update_segments();
+});
+
+webui.add_json("/segments_get", (post_data)
+{	
+	return led_segments;
+});
+
+
+webui.add_header("SEGMENTS", "/segments");
+
+init_driver();
+update_segments();
