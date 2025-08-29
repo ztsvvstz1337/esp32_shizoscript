@@ -4,7 +4,6 @@
 global header_buttons = [
 	"HOME" = "/",
 	"SETTINGS" = "/settings",
-	"CONSOLE" = "/console"
 ];
 
 all_files = [

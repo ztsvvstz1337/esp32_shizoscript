@@ -1,36 +1,13 @@
 
 global create_gpt_oss = 0;
 
-driver = 0;
+global driver = 0;
 
-led_segments = from_json_string(string(fileread("/static/segments.json")));
+global led_segments = from_json_string(string(fileread("/static/segments.json")));
+global led_segments_groups = 0;
 
+global group_anims = from_json_string(string(fileread("/static/effects.json")));
 
-main()
-{
-	//print("hello from main!");
-	
-	print("---STARTING LED DRIVER---");
-	
-	return;
-
-	print("---TESTING GPT OSS---");
-	
-	llm = create_gpt_oss();
-	
-	llm.history.on_analysis = (stepid, txt)
-	{
-		print(txt);
-	};
-	
-	llm.history.on_answer = (stepid, txt)
-	{
-		print(txt);
-	};
-	
-	print(llm.text("Who are you?"));
-	print("FINISHED.");
-}
 
 //First ever init
 if(led_segments:count() == 0)
@@ -119,6 +96,51 @@ webui.on_main_page = ()
 	return page;
 };
 
+update_anims()
+{
+	for(i = 0; i < group_anims:count(); i++)
+	{
+		driver.set_effect(group_anims:key(i), group_anims[i].effect);
+		
+		col1 = get_color(group_anims[i].color1);
+		col2 = get_color(group_anims[i].color2);
+		
+		driver.set_effect_color1(group_anims:key(i), col1.r, col1.b, col1.g);
+		driver.set_effect_color2(group_anims:key(i), col2.r, col2.b, col2.g);
+		
+		driver.set_effect_intensity(group_anims:key(i), group_anims[i].intensity);
+		driver.set_effect_speed(group_anims:key(i), group_anims[i].speed);
+		driver.set_effect_ctrl1(group_anims:key(i), group_anims[i].ctrl1);	
+		driver.set_effect_ctrl2(group_anims:key(i), group_anims[i].ctrl2);	
+		driver.set_effect_ctrl3(group_anims:key(i), group_anims[i].ctrl3);			
+	}
+	
+	filewrite("/static/effects.json", to_json_string(group_anims));
+}
+
+webui.add_json("/effects_get", (post_data)
+{	
+	return [effects=driver.get_effects(),
+			palettes = [
+				[name="Warm",id="builtin_warm"],
+				[name="Cool",id="builtin_cool"],
+				[name="Party",id="builtin_party"],
+			],
+			settings = group_anims,
+		];
+});
+
+webui.add_post("/animations_update", (post_data)
+{	
+	group_anims = from_json_string(post_data.plain);
+
+	if(group_anims:count() == 0)
+		return;
+
+	filewrite("/static/animations.json", to_json_string(group_anims));
+
+	update_anims();
+});
 
 // # SEGMENTS
 
@@ -146,6 +168,8 @@ update_segments()
 	
 	driver.set_target("SMOOTHBUFFER");
 	
+	led_segments_groups = 0;
+	
 	output_id = 0;
 	for(#it :: led_segments)
 	{
@@ -153,19 +177,32 @@ update_segments()
 		current_index = 0;
 		for(#seg :: it.segments)
 		{
+			led_segments_groups[seg.group]:push($seg);
+			
+			ledcount = int(seg.width * max(1,seg.height));
+			
+			for(i = 0; i < seg.count; i++)
+			{			
+				//Sort after group and total LED count (to avoid double rendering same segments)
+				led_segments_groups[seg.group][string(ledcount)]:push([output=output_id, index=current_index+ledcount*i, count=ledcount]);
+			}
+			
 			brightness = seg.brightness / 255.0;
 			col = get_color(seg.color);
 			
 			if(has_solo_segments && !seg.testout)
 				brightness = 0;
 			
-			driver.set_pixels(output_id, current_index, seg.width * max(1,seg.count), col.r*brightness*255.0, col.g*brightness*255.0, col.b*brightness*255.0);
-			current_index += seg.width * max(1,seg.count);
+			driver.set_pixels(output_id, current_index, seg.width * max(1,seg.height) * max(1,seg.count), col.r*brightness*255.0, col.g*brightness*255.0, col.b*brightness*255.0);
+			current_index += seg.width * max(1,seg.height) * max(1,seg.count);
 			segment_id++;
 		}
 		
 		output_id++;
 	}
+	
+	driver.set_effect_groups(led_segments_groups);
+	
 }
 
 webui.add_site("/segments", ()
@@ -201,3 +238,30 @@ webui.add_header("SEGMENTS", "/segments");
 
 init_driver();
 update_segments();
+update_anims();
+
+main()
+{
+	//print("hello from main!");
+	
+	print("---STARTING LED DRIVER---");
+	
+	return;
+
+	print("---TESTING GPT OSS---");
+	
+	llm = create_gpt_oss();
+	
+	llm.history.on_analysis = (stepid, txt)
+	{
+		print(txt);
+	};
+	
+	llm.history.on_answer = (stepid, txt)
+	{
+		print(txt);
+	};
+	
+	print(llm.text("Who are you?"));
+	print("FINISHED.");
+}

@@ -1,0 +1,12 @@
+
+global mic = 0;
+
+main()
+{
+	print("---INIT AUDIO---");
+	
+	mic = i2s_mic();
+	
+	//SCK, WS, SD, SamplebufferCount
+	mic.begin(36, 32, 33, 512);
+}

@@ -161,23 +161,40 @@ function addOutput() {
 }
 
 function addSegment(outputIndex) {
-  outputs[outputIndex].segments.push({
-    name: "Segment",
-	group: "Default",
-    width: 10,
-	height: 1,
-    count: 1,
-    color: "#000000",
-    brightness: 255,
-    enabled: true,
-    reverse: false,
-    mirror: false
-  });
+  const segs = outputs[outputIndex].segments;
+  
+  let newSeg;
+  if (segs.length > 0) {
+    // clone last segment
+    const last = segs[segs.length - 1];
+    newSeg = { ...last }; // shallow copy all fields
+  } else {
+    // default template
+    newSeg = {
+      name: "Segment",
+      group: "Default",
+      width: 10,
+      height: 1,
+      count: 1,
+      color: "#000000",
+      brightness: 255,
+      enabled: true,
+      reverse: false,
+      mirror: false
+    };
+  }
+
+  segs.push(newSeg);
   renderOutputs();
 }
 
 function deleteSegment(outputIndex, segmentIndex) {
   outputs[outputIndex].segments.splice(segmentIndex, 1);
+  renderOutputs();
+}
+
+function deleteOutput(outputIndex) {
+  outputs.splice(outputIndex, 1);
   renderOutputs();
 }
 
@@ -254,6 +271,7 @@ function renderOutputs() {
 		  <input type="number" min="0" value="${output.pin}" 
 			oninput="outputs[${oi}].pin=parseInt(this.value)">
 		</label>
+		<button class="delete-btn" onclick="deleteOutput(${oi})">✖</button>
 	  </div>
 	`;
 	
