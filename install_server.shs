@@ -208,10 +208,15 @@ net.on_connect((dev)
 		print("GET FIRMWARE");
 		cur_firm = dev.get("check_firm_version");
 		
-		for(cur_firm == 0)
+		for(cur_firm:empty_str())
 		{
 			print("Cannot get firmware, retrying...");
+			sleep(2000);
 			cur_firm = dev.get("check_firm_version");
+			
+			if(!dev.online())
+				print("Device timed out!");
+				return;
 		}
 		
 		print("FIRM: " + cur_firm);

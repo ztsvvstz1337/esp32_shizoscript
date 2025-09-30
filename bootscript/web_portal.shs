@@ -1,45 +1,35 @@
+print("web_portal(): init webserver...");
 
 //Some definitions....
 
 global header_buttons = [
-	"HOME" = "/",
+	"HOME" = "/home",
 	"SETTINGS" = "/settings",
 	"FILES" = "/filebrowser",
 ];
 
-all_files = [
-	header_chunk = "header_chunk.html",
-	section_start = "section_start.html",
-	control_slider = "control_slider.html",
-	control_text = "control_text.html",
-	control_checkbox = "control_checkbox.html",
-	control_color = "control_color.html",
-	section_end = "section_end.html",
-	footer_chunk = "footer_chunk.html",
-	section_presets = "section_presets.html",
-	status_block = "status_block.html",
-	ai_setup = "ai_setup.html",
+templates = [
+	menu=string(fileread("/ui/menu.html")),
+	styles=string(fileread("/ui/styles.css")),
 ];
 
-//Loading stuff...
+//-----------------------------------------
 
-chunks = 0;
+//Start loading UI elements automatically
 
-print("web_portal(): init webserver...");
+templated_files = fs_list_files("/ui/templates");
 
-load_chunks()
+for(tmpl_file :: templated_files)
 {
-	print("Loading webportal templates...");
-	for(i = 0; i < all_files:count(); i++)
-	{
-		name = all_files:key(i);
-		chunks[name] = string(fileread("/ui/" + all_files[i]));
-	}
-	print("loaded.");
+	tmpl_name = os.file_name(tmpl_file);
+	templates[tmpl_name] = string(fileread(tmpl_file));
 }
 
-load_chunks();
+//print("TEMPLATES:");
+//print(templates);
 
+
+//Loading stuff...
 config_update = 0;
 update_config_thread()
 {
@@ -50,7 +40,7 @@ update_config_thread()
 			sleep(500);
 			save_config();
 			config_update = 0;
-		sleep(3000);
+		sleep(1000);
 	}
 }
 ~update_config_thread();
@@ -84,9 +74,9 @@ class WebPortal =
 
 	//UI Controls
 
-	render(chunk_name, options)
+	render(chunk_name, options = 0)
 	{
-		str = chunks[chunk_name];
+		str = templates[chunk_name];
 		for(i = 0; i < options:count(); i++)
 		{
 			r1 = options:key(i);
@@ -100,18 +90,12 @@ class WebPortal =
 
 	add_start()
 	{
-		btns_str = "";
-		for(i = 0; i < header_buttons:count(); i++)
-		{
-			//<a href="/settings">SETTINGS</a>
-			btns_str += "<a href=" + qt() + header_buttons[i] + qt() + ">" + header_buttons:key(i) + "</a>\n";
-		}
-		return render("header_chunk", [device_name=default_config.name, buttons=btns_str]);
+		return render("page_start", [styles=templates["styles"]]);
 	}
 
 	add_end()
 	{
-		return render("footer_chunk", 0);
+		return render("page_end");
 	}
 
 	add_section(title)
@@ -250,6 +234,15 @@ class WebPortal =
 		});
 	}
 	
+	add_root(url, cb)
+	{
+		server.on(url, [this, cb]()
+		{
+			page = cb();
+			this.server.send(200, "text/html", page);
+		});
+	}
+	
 	add_not_found(cb)
 	{
 		server.on_not_found([this, cb](uri)
@@ -292,6 +285,33 @@ class WebPortal =
 };
 
 global webui = WebPortal();
+
+webui.add_root("/", ()
+{
+	hdr = "";
+	
+	//<a href="/home" target="contentFrame">🏠 Home</a>
+	
+	for(i = 0; i < header_buttons:count(); i++)
+	{
+		hdr += f"<a href='{{header_buttons[i]}}' target='contentFrame'>{{header_buttons:key(i)}}</a>\n";
+	}
+	
+	name = default_config.name;
+	name += " [" + shizonet.get_mac() + "] (" + shizonet.get_ip() + ")";
+	
+	page = webui.render("menu", [name=name, header_buttons = hdr]);
+	return page;
+});
+
+webui.add_site("/home", ()
+{
+	page = webui.add_main_page_stub();
+	page += webui.add_section("Status");
+	page += webui.add_status();
+	
+	return page;
+});
 
 webui.add_site("/settings", ()
 {	
@@ -347,17 +367,7 @@ webui.add_site("/settings", ()
 
 webui.add_site("/filebrowser", ()
 {
-	page = webui.add_html("/ui/code_editor.html");
-	return page;
-});
-
-
-webui.add_site("/", ()
-{
-	page = webui.add_main_page_stub();
-	page += webui.add_section("Status");
-	page += webui.add_status();
-	
+	page = webui.add_html("/ui/static/code_editor.html");
 	return page;
 });
 
@@ -365,7 +375,9 @@ webui.add_not_found((uri)
 {
 	print("TEST YES!");
 	print(uri);
-	page = string(fileread(uri));
+	if(uri[0] == "/")
+		uri = uri:substr(1);
+	page = string(fileread("/ui/" + uri));
 	print(page:count());
 	return page;
 });
