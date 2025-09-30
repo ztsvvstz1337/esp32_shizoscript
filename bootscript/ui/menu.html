@@ -52,11 +52,33 @@
 	  padding: 0 1rem;
 	}
 
+	.header-title-wrapper {
+	  overflow: hidden;
+	  flex: 1;              /* take remaining space next to menu */
+	  margin-left: 0.5rem;
+	  position: relative;
+	}
+
 	.header-title {
+	  display: inline-block;
+	  white-space: nowrap;
 	  color: var(--neon-blue);
+	  text-shadow: 0 0 5px var(--neon-blue), 0 0 10px var(--neon-blue);
 	  font-weight: bold;
-	  font-size: 1.6rem;
-	  margin-left: 1rem; /* adds space between button and text */
+	  font-size: 1.3rem;
+
+	  position: relative;
+	  left: 0;
+	}
+
+
+	@keyframes scrollText {
+	  0% {
+		transform: translateX(100%); /* start off to the right */
+	  }
+	  100% {
+		transform: translateX(-100%); /* scroll all the way to the left */
+	  }
 	}
 
 
@@ -184,7 +206,9 @@
 <body>
   <header>
     <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+	<div class="header-title-wrapper">
     <span class="header-title">{{name}}</span>
+	</div>
   </header>
 
 
@@ -218,6 +242,27 @@
     document.querySelectorAll('.sidebar a').forEach(link => {
       link.addEventListener('click', closeSidebar);
     });
+	
+	
+	function updateHeaderScroll() {
+	  const wrapper = document.querySelector('.header-title-wrapper');
+	  const title = document.querySelector('.header-title');
+
+	  // Remove previous animation if any
+	  title.style.animation = 'none';
+
+	  if (title.scrollWidth > wrapper.clientWidth) {
+		const distance = title.scrollWidth + wrapper.clientWidth; // total distance to scroll
+		const speed = 50; // pixels per second
+		const duration = distance / speed; // in seconds
+
+		title.style.animation = `scrollText ${duration}s linear infinite`;
+	  }
+	}
+
+	// Call on page load
+	window.addEventListener('load', updateHeaderScroll);
+	window.addEventListener('resize', updateHeaderScroll);
   </script>
 </body>
 </html>

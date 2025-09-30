@@ -16,9 +16,9 @@ templates = [
 //-----------------------------------------
 
 //Start loading UI elements automatically
-
+print("Loading templates...");
 templated_files = fs_list_files("/ui/templates");
-
+print(templated_files);
 for(tmpl_file :: templated_files)
 {
 	tmpl_name = os.file_name(tmpl_file);
@@ -30,6 +30,8 @@ for(tmpl_file :: templated_files)
 
 
 //Loading stuff...
+print("Starting config update thread...");
+
 config_update = 0;
 update_config_thread()
 {
@@ -53,6 +55,7 @@ get_id(name)
 }
 
 //HTML template render functions...
+print("init webportal class...");
 
 class WebPortal =
 {
@@ -285,6 +288,8 @@ class WebPortal =
 };
 
 global webui = WebPortal();
+
+print("adding net routes...");
 
 webui.add_root("/", ()
 {
