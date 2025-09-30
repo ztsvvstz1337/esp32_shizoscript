@@ -1,0 +1,341 @@
+<style>
+/* Dark modern theme */
+:root{
+  --bg:#0b0f14; --panel:#0f1419; --muted:#9aa6b2;
+  --accent:#6ee7b7; --danger:#ff6b6b; --glass: rgba(255,255,255,0.02);
+  --panel-2: #0d1318; --gutter:#0b1014;
+  --radius:12px; --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,#050607 0%, #071019 60%); color:#e6eef5}
+
+.app{display:flex;height:100vh;gap:18px;padding:18px}
+
+.side{width:320px;background:linear-gradient(180deg,var(--panel),#071018);border-radius:var(--radius);padding:14px;box-shadow:0 6px 24px rgba(2,6,10,0.6);display:flex;flex-direction:column}
+.main{flex:1;display:flex;flex-direction:column;gap:12px}
+
+/* Header */
+.header{display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:36px;height:36px;border-radius:8px;background:linear-gradient(90deg,var(--accent),#5bd6ff);display:flex;align-items:center;justify-content:center;color:#031218;font-weight:700}
+.title{font-weight:700}
+.sub{color:var(--muted);font-size:13px}
+
+/* Controls */
+.controls{display:flex;gap:8px;margin-left:auto}
+button.btn{background:var(--glass);border:1px solid rgba(255,255,255,0.03);padding:8px 10px;border-radius:10px;color:var(--muted);font-weight:600;cursor:pointer}
+button.btn.primary{background:linear-gradient(90deg,var(--accent),#5bd6ff);color:#021115;border:none}
+
+/* Search */
+.search{margin:10px 0}
+.search input{width:100%;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted)}
+
+/* File tree */
+.tree{flex:1;overflow:auto;padding-right:6px}
+.node{padding:6px 8px;border-radius:8px;display:flex;align-items:center;gap:8px;color:var(--muted);cursor:pointer}
+.node:hover{background:rgba(255,255,255,0.02)}
+.node.selected{background:linear-gradient(90deg,rgba(110,231,183,0.08),rgba(91,214,255,0.03));color:var(--accent)}
+.folder{font-weight:700}
+.children{margin-left:14px}
+
+/* Footer small actions */
+.side-footer{display:flex;gap:8px;margin-top:8px}
+
+/* Editor area */
+.editor-panel{flex:1;background:linear-gradient(180deg,var(--panel-2),#071217);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;box-shadow:0 6px 30px rgba(1,6,10,0.7)}
+.editor-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.path{color:var(--muted);font-size:13px}
+.actions{margin-left:auto;display:flex;gap:8px}
+
+/* Editor area: gutter + code area */
+.editor-wrap{display:flex;flex:1;overflow:hidden;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+.gutter{width:54px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);padding:8px 6px;overflow:auto;color:var(--muted);font-family:var(--mono);font-size:13px}
+.code{flex:1;overflow:auto;padding:8px 12px;background:transparent;font-family:var(--mono);font-size:13px;white-space:pre;outline:none;color:#e6f3f2}
+
+/* status bar */
+.status{height:36px;border-radius:8px;display:flex;align-items:center;gap:10px;padding:0 12px;background:linear-gradient(90deg,rgba(255,255,255,0.02),transparent);color:var(--muted);font-size:13px}
+
+/* small helpers */
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.03);padding:6px;border-radius:8px;color:var(--muted)}
+.small{font-size:13px;color:var(--muted)}
+
+/* responsive */
+@media (max-width:900px){.side{width:260px}.gutter{display:none}.app{padding:12px}.editor-panel{padding:8px}}
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="header">
+      <div class="brand">
+        <div class="logo">ESP</div>
+        <div>
+          <div class="title">ESP32 Files</div>
+          <div class="sub">Web UI · Dark</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="refreshBtn" title="Refresh file list">⟳</button>
+        <button class="btn" id="newBtn">+ New</button>
+        <button class="btn" id="uploadBtn">Upload</button>
+      </div>
+    </div>
+
+    <div class="search"><input id="search" placeholder="Filter files... (type & enter)"/></div>
+
+    <div class="tree" id="fileTree" tabindex=0></div>
+
+    <div class="side-footer">
+      <button class="btn-ghost" id="downloadBtn">Download</button>
+      <button class="btn-ghost" id="deleteBtn">Delete</button>
+      <div style="flex:1"></div>
+      <div class="small">Connected: <span id="connState">--</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="editor-panel">
+      <div class="editor-header">
+        <div>
+          <div id="filename" style="font-weight:700">(no file)</div>
+          <div class="path" id="filePath">/</div>
+        </div>
+        <div class="actions">
+          <button id="formatBtn" class="btn">Format</button>
+          <button id="saveBtn" class="btn primary">Save</button>
+        </div>
+      </div>
+
+      <div class="editor-wrap">
+        <div class="gutter" id="gutter"></div>
+        <div id="editor" class="code" contenteditable="true" spellcheck="false"></div>
+      </div>
+
+      <div style="height:12px"></div>
+      <div class="status">
+        <div id="statusMsg">No file loaded</div>
+        <div style="flex:1"></div>
+        <div id="cursorPos">Ln 1, Col 1</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/*
+  ESP32 File Browser + Code Editor (single-file)
+  - Works offline (no external libs required).
+  - The UI talks to these expected backend endpoints (ESP32 sketch should implement):
+      GET  /api/list            -> returns JSON tree: [{"name":"/","children":[...]}, ...]
+      GET  /api/file?path=...   -> returns {"content":"...","type":"text"}
+      POST /api/save?path=...   -> body: raw text to save; returns {"ok":true}
+      POST /api/delete?path=... -> {"ok":true}
+      POST /api/upload         -> multipart/form-data with file field 'file'
+  - If you want to integrate CodeMirror or Monaco for richer editing: download the library to the ESP filesystem and update the loader below.
+*/
+
+const endpoints = {
+  list: '/api/list',
+  file: '/api/file',
+  save: '/api/save',
+  delete: '/api/delete',
+  upload: '/api/upload'
+};
+
+// --- Simple state ---
+let state = { tree:[], selected: null, content: '', savedContent: '' };
+const els = {
+  fileTree: document.getElementById('fileTree'),
+  editor: document.getElementById('editor'),
+  gutter: document.getElementById('gutter'),
+  filename: document.getElementById('filename'),
+  filePath: document.getElementById('filePath'),
+  statusMsg: document.getElementById('statusMsg'),
+  cursorPos: document.getElementById('cursorPos'),
+  connState: document.getElementById('connState')
+};
+
+// --- network helpers ---
+async function apiGet(url){
+  try{ const r = await fetch(url, {cache:'no-store'}); if(!r.ok) throw r; return await r.json(); }
+  catch(e){ console.error('GET error', e); throw e; }
+}
+async function apiText(url){
+  try{ const r = await fetch(url, {cache:'no-store'}); if(!r.ok) throw r; return await r.text(); }
+  catch(e){ console.error('GET text error', e); throw e; }
+}
+async function apiPost(url, body, headers){
+  try{ const r = await fetch(url, {method:'POST', body, headers}); if(!r.ok) throw r; return await r.json(); }
+  catch(e){ console.error('POST error', e); throw e; }
+}
+
+// --- UI actions ---
+async function refresh(){
+  try{
+    setConn(true);
+    const t = await apiGet(endpoints.list);
+    state.tree = t;
+    renderTree();
+    setStatus('File list loaded');
+  }catch(e){ setConn(false); setStatus('Failed to load file list'); }
+}
+
+function setConn(ok){ els.connState.textContent = ok? 'yes' : 'no'; els.connState.style.color = ok? 'var(--accent)':'var(--danger)'; }
+
+function setStatus(s){ els.statusMsg.textContent = s; }
+
+function makeNode(item){
+  const el = document.createElement('div');
+  el.className = 'node';
+  el.dataset.path = item.path || item.name;
+  const icon = document.createElement('div');
+  icon.innerHTML = item.children ? '📁' : '📄';
+  const label = document.createElement('div');
+  label.textContent = item.name;
+  label.style.flex = '1';
+  el.appendChild(icon); el.appendChild(label);
+
+  if(item.children){ el.classList.add('folder'); el.addEventListener('click', (e)=>{ e.stopPropagation(); el.classList.toggle('open'); const ch = el.querySelector('.children'); if(!ch){ const wrapper = document.createElement('div'); wrapper.className = 'children'; item.children.forEach(c=> wrapper.appendChild(makeNode(c))); el.appendChild(wrapper); } else ch.style.display = ch.style.display === 'none' ? '' : 'none'; }); }
+  else{ el.addEventListener('click', (e)=>{ e.stopPropagation(); openFile(el.dataset.path); document.querySelectorAll('.node').forEach(n=>n.classList.remove('selected')); el.classList.add('selected'); }); }
+  return el;
+}
+
+function renderTree(){ els.fileTree.innerHTML = ''; (state.tree.children||state.tree).forEach(item=> els.fileTree.appendChild(makeNode(item)) ); }
+
+// --- file operations ---
+async function openFile(path){
+  try{
+    setStatus('Loading '+path+' ...');
+    const q = new URL(endpoints.file, location.origin); q.searchParams.set('path', path);
+    const resp = await apiGet(q);
+    const content = resp.content || '';
+    state.selected = path; state.content = content; state.savedContent = content;
+    els.filename.textContent = path.split('/').pop(); els.filePath.textContent = path;
+    els.editor.textContent = content; updateGutter(); setStatus('Loaded');
+  }catch(e){ setStatus('Failed to load file'); }
+}
+
+async function saveFile(){
+  if(!state.selected){ setStatus('No file selected'); return; }
+  try{
+    setStatus('Saving...');
+    const q = new URL(endpoints.save, location.origin); q.searchParams.set('path', state.selected);
+    const body = new Blob([els.editor.textContent], {type:'text/plain'});
+    const r = await fetch(q, {method:'POST', body});
+    if(!r.ok) throw r;
+    state.savedContent = els.editor.textContent;
+    setStatus('Saved');
+  }catch(e){ setStatus('Save failed'); }
+}
+
+async function deleteFile(){
+  if(!state.selected){ setStatus('No file'); return; }
+  if(!confirm('Delete '+state.selected+'?')) return;
+  try{ const q = new URL(endpoints.delete, location.origin); q.searchParams.set('path', state.selected); await apiPost(q); setStatus('Deleted'); refresh(); els.editor.textContent=''; state.selected=null; }catch(e){ setStatus('Delete failed'); }
+}
+
+// create new file (prompt)
+async function newFile(){
+  const name = prompt('New file path (e.g. /main.js or /www/new.txt):','/newfile.txt'); if(!name) return;
+  try{ const q = new URL(endpoints.save, location.origin); q.searchParams.set('path', name); const r = await fetch(q, {method:'POST', body: ''}); if(!r.ok) throw r; setStatus('Created '+name); refresh(); }catch(e){ setStatus('Create failed'); }
+}
+
+// upload helper
+function doUpload(){
+  const inp = document.createElement('input'); inp.type='file'; inp.onchange = async ()=>{
+    const f = inp.files[0]; if(!f) return;
+    const fd = new FormData(); fd.append('file', f);
+    try{ setStatus('Uploading...'); const r = await fetch(endpoints.upload, {method:'POST', body:fd}); if(!r.ok) throw r; setStatus('Uploaded'); refresh(); }catch(e){ setStatus('Upload failed'); }
+  }; inp.click();
+}
+
+// Download current file content
+function downloadFile(){
+  if(!state.selected) return setStatus('No file');
+  const a = document.createElement('a'); const blob = new Blob([els.editor.textContent], {type:'text/plain'}); a.href = URL.createObjectURL(blob); a.download = state.selected.split('/').pop(); a.click(); URL.revokeObjectURL(a.href);
+}
+
+// --- editor helpers ---
+function updateGutter(){
+  const lines = (els.editor.textContent||'').split('\n').length || 1;
+  const out = []; for(let i=1;i<=lines;i++) out.push(i);
+  els.gutter.textContent = out.join('\n');
+}
+
+function updateCursor(){
+  const sel = window.getSelection(); if(!sel) return;
+  const text = els.editor.textContent.substring(0, sel.anchorOffset);
+  const ln = text.split('\n').length; const col = sel.anchorOffset - text.lastIndexOf('\n');
+  els.cursorPos.textContent = `Ln ${ln}, Col ${col}`;
+}
+
+// basic autosave indicator
+let saveTimer = null;
+els.editor.addEventListener('input', ()=>{ updateGutter(); updateCursor(); if(saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(()=>{ setStatus('Edited'); }, 400); });
+els.editor.addEventListener('keyup', updateCursor);
+
+// format (simple) for JSON and pretty HTML/JS basic indentation using browser APIs
+function tryFormat(){
+  const txt = els.editor.textContent; try{
+    if(txt.trim().startsWith('{')||txt.trim().startsWith('[')){
+      const j = JSON.parse(txt); els.editor.textContent = JSON.stringify(j,null,2); updateGutter(); setStatus('Formatted JSON'); return;
+    }
+    // basic HTML/JS formatting not implemented - keep simple
+    setStatus('No auto-formatter for this file type (JSON only)');
+  }catch(e){ setStatus('Format failed'); }
+}
+
+// wire up buttons
+document.getElementById('refreshBtn').addEventListener('click', refresh);
+document.getElementById('newBtn').addEventListener('click', newFile);
+document.getElementById('uploadBtn').addEventListener('click', doUpload);
+document.getElementById('saveBtn').addEventListener('click', saveFile);
+document.getElementById('deleteBtn').addEventListener('click', deleteFile);
+document.getElementById('downloadBtn').addEventListener('click', downloadFile);
+document.getElementById('formatBtn').addEventListener('click', tryFormat);
+
+// search filter (press Enter to apply)
+document.getElementById('search').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ const q=e.target.value.trim().toLowerCase(); filterTree(q); } });
+
+function filterTree(q){ if(!q) return renderTree(); const nodes = els.fileTree.querySelectorAll('.node'); nodes.forEach(n=>{ const name = n.textContent.toLowerCase(); n.style.display = name.includes(q)?'flex':'none'; }); }
+
+// initial load
+refresh();
+
+// keyboard shortcuts: Ctrl-S save
+window.addEventListener('keydown',(e)=>{ if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); saveFile(); } });
+
+// Optional: Simple client-side syntax highlight (lightweight) -- we will perform minimal token coloring using spans
+// NOTE: This is intentionally minimal and optional (keeps offline). If you want full-featured editing, integrate CodeMirror/Monaco.
+
+// If you place CodeMirror (v6) or Monaco on the device, comment/uncomment loader below and adapt paths.
+
+(function tryLoadCodeMirror(){
+  const script = document.createElement('script');
+  script.src = '/codemirror.js';
+  script.onload = ()=>{ console.log('CodeMirror loaded'); /* initialize... */ };
+  script.onerror = ()=>{ console.log('No CodeMirror found, using builtin editor'); };
+  document.head.appendChild(script);
+})();
+
+
+// Small UX polish: clicking gutter moves cursor to start of line
+els.gutter.addEventListener('click', (e)=>{
+  const lineHeight = parseFloat(getComputedStyle(els.gutter).lineHeight) || 18;
+  const y = e.offsetY; const line = Math.floor(y/lineHeight)+1; placeCursorAtLine(line);
+});
+function placeCursorAtLine(line){ const txt = els.editor.textContent||''; const lines = txt.split('\n'); let offset = 0; for(let i=0;i<Math.min(line-1,lines.length);i++) offset += lines[i].length+1; const range = document.createRange(); const sel = window.getSelection(); const node = els.editor.firstChild || els.editor; // crude
+  // place at offset by walking
+  let walkerOffset = offset;
+  // fallback: set caret at end then move
+  els.editor.focus(); sel.collapse(els.editor, 0);
+}
+
+// small accessibility: focus editor on double click
+els.editor.addEventListener('dblclick', ()=> els.editor.focus());
+
+// keep gutter synced on resize/scroll
+els.editor.addEventListener('scroll', ()=>{ els.gutter.scrollTop = els.editor.scrollTop; });
+window.addEventListener('resize', updateGutter);
+
+// End of file
+</script>

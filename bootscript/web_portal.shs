@@ -4,6 +4,7 @@
 global header_buttons = [
 	"HOME" = "/",
 	"SETTINGS" = "/settings",
+	"FILES" = "/filebrowser",
 ];
 
 all_files = [
@@ -219,6 +220,12 @@ class WebPortal =
 		
 		if(cb:is_function())
 			cb2 = cb;
+			
+		//'checked' html attribute
+		if(options.checked)
+			options.checked = "checked";
+		else
+			options.checked = "";
 		
 		return add_ctrl("checkbox", name, cb2, options);
 	}
@@ -240,6 +247,18 @@ class WebPortal =
 			page += this.add_section("");
 			page += this.add_end();	
 			this.server.send(200, "text/html", page);
+		});
+	}
+	
+	add_not_found(cb)
+	{
+		server.on_not_found([this, cb](uri)
+		{
+			page = cb(uri);
+			if(page:empty_str())
+				this.server.send(404, "text/html", page);
+			else
+				this.server.send(200, "text/html", page);
 		});
 	}
 	
@@ -282,6 +301,7 @@ webui.add_site("/settings", ()
 	page += webui.add_text("IP", 0, "2.0.0.10");
 	page += webui.add_text("Gateway", 0, "2.0.0.1");
 	page += webui.add_text("Netmask", 0, "255.255.255.0");
+	page += webui.add_checkbox("DHCP Server", 0, 0);
 	
 	page += webui.add_section("Remote WLANs");
 	
@@ -325,12 +345,28 @@ webui.add_site("/settings", ()
 	return page;
 });
 
+webui.add_site("/filebrowser", ()
+{
+	page = webui.add_html("/ui/code_editor.html");
+	return page;
+});
+
+
 webui.add_site("/", ()
 {
 	page = webui.add_main_page_stub();
 	page += webui.add_section("Status");
 	page += webui.add_status();
 	
+	return page;
+});
+
+webui.add_not_found((uri)
+{
+	print("TEST YES!");
+	print(uri);
+	page = string(fileread(uri));
+	print(page:count());
 	return page;
 });
 

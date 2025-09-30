@@ -3,7 +3,8 @@
 <h2>LED Segment Editor</h2>
 <div class="controls">
   <div id="outputs"></div>
-  <button onclick="addOutput()">+ Add Output</button>
+  <button onclick="addLEDOutput()">+ Add LED WS2812B Output</button>
+  <button onclick="addDMXOutput('dmx')">+ Add DMX Output</button>
 </div>
 </div>
 
@@ -78,156 +79,144 @@
 </style>
 
 <script>
-let outputs = [];
+// *** Top-level outputs object ***
+let outputs = {
+  led_outputs: [],
+  dmx_outputs: []
+};
 
-/* Call this right after you create each segCard in renderOutputs() */
-function wireDrag(segCard, oi, si) {
-  const handle = segCard.querySelector('.drag-handle');
+// --- DMX Fixture Types ---
+const DMX_FIXTURE_TYPES = [
+  { id: "rgb", name: "RGB (3-channel)" },
+  { id: "rgbw", name: "RGBW (4-channel)" },
+  { id: "dimmer", name: "Dimmer (1-channel)" }
+];
 
-  // Arm-only-on-handle: card is NOT draggable unless the handle was pressed
-  const arm = () => {
-    segCard.setAttribute('draggable', 'true');
-    segCard.dataset.dragArmed = '1';
-  };
-  const disarm = () => {
-    segCard.removeAttribute('draggable');
-    delete segCard.dataset.dragArmed;
-  };
-
-  handle.addEventListener('pointerdown', (e) => {
-    arm();
-    // avoid selecting text when starting a drag
-    e.preventDefault();
-  });
-
-  // If user taps without actually dragging, clean up
-  document.addEventListener('pointerup', disarm, { passive: true });
-
-  segCard.addEventListener('dragstart', (e) => {
-    // If not armed by handle, cancel
-    if (!segCard.dataset.dragArmed) {
-      e.preventDefault();
-      return;
-    }
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', JSON.stringify({ oi, si }));
-    segCard.classList.add('dragging');
-  });
-
-  segCard.addEventListener('dragend', () => {
-    segCard.classList.remove('dragging');
-    disarm();
-  });
-
-  // Allow dropping on any segment card in the same output
-  segCard.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  });
-
-  segCard.addEventListener('drop', (e) => {
-    e.preventDefault();
-    const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
-    if (data.oi !== oi) return; // only within same output
-
-    const from = data.si;
-    const toCard = segCard;
-    const to = parseInt(toCard.dataset.segmentIndex, 10);
-
-    if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return;
-
-    const segs = outputs[oi].segments;
-    const moved = segs.splice(from, 1)[0];
-
-    // Insert BEFORE the drop target (classic behavior).
-    // If moving down (from < to), the target index shifts left by 1 after removal.
-    let insertAt = to;
-    if (from < to) insertAt = to - 1;
-
-    segs.splice(insertAt, 0, moved);
-
-    renderOutputs(); // re-render to refresh dataset indices
-    // (your JSON POST stays wherever you already do it)
-  });
+// --- Generic Add Output from HTML Buttons ---
+function addOutput(type) {
+  if (type === 'led') addLEDOutput();
+  if (type === 'dmx') addDMXOutput();
 }
 
-function addOutput() {
-  outputs.push({
-    name: "Output",
+// --- Add / Delete Outputs ---
+function addLEDOutput() {
+  outputs.led_outputs.push({
+    name: "LED Output",
     pin: 0,
     segments: []
   });
   renderOutputs();
 }
 
-function addSegment(outputIndex) {
-  const segs = outputs[outputIndex].segments;
-  
-  let newSeg;
-  if (segs.length > 0) {
-    // clone last segment
-    const last = segs[segs.length - 1];
-    newSeg = { ...last }; // shallow copy all fields
-  } else {
-    // default template
-    newSeg = {
-      name: "Segment",
-      group: "Default",
-      width: 10,
-      height: 1,
-      count: 1,
-      color: "#000000",
-      brightness: 255,
-      enabled: true,
-      reverse: false,
-      mirror: false
-    };
+function addDMXOutput() {
+
+  if (outputs.dmx_outputs.length >= 1) {
+    alert("Only one DMX is supported yet.");
+    return;
   }
 
-  segs.push(newSeg);
+  outputs.dmx_outputs.push({
+    name: "DMX Universe",
+    txPin: 0,
+    rxPin: 0,
+    rtsPin: 0,
+    fixtures: []
+  });
   renderOutputs();
 }
 
-function deleteSegment(outputIndex, segmentIndex) {
-  outputs[outputIndex].segments.splice(segmentIndex, 1);
+function deleteLEDOutput(index) {
+  outputs.led_outputs.splice(index, 1);
   renderOutputs();
 }
 
-function deleteOutput(outputIndex) {
-  outputs.splice(outputIndex, 1);
+function deleteDMXOutput(index) {
+  outputs.dmx_outputs.splice(index, 1);
   renderOutputs();
 }
 
+// --- Segments / Fixtures ---
+function addSegment(ledIndex) {
+  outputs.led_outputs[ledIndex].segments.push({
+    name: "Segment",
+	group: "Default",
+    width: 10,
+    height: 1,
+    count: 1,
+    color: "#000000",
+    brightness: 255,
+    enabled: true,
+    reverse: false,
+    mirror: false
+  });
+  renderOutputs();
+}
+
+function deleteSegment(ledIndex, segIndex) {
+  outputs.led_outputs[ledIndex].segments.splice(segIndex, 1);
+  renderOutputs();
+}
+
+function addFixture(dmxIndex) {
+  outputs.dmx_outputs[dmxIndex].fixtures.push({
+    name: "Fixture",
+    fixtureType: "rgb",
+    address: 1,
+    count: 1,
+    width: 1,
+    height: 1,
+    enabled: true
+  });
+  renderOutputs();
+}
+
+function deleteFixture(dmxIndex, fixIndex) {
+  outputs.dmx_outputs[dmxIndex].fixtures.splice(fixIndex, 1);
+  renderOutputs();
+}
+
+// --- Fetch initial data ---
 function initOutputs() {
   fetch('/segments_get', { method: 'POST' })
     .then(res => {
       if (!res.ok) throw new Error("Failed to get segments");
-      return res.json(); // ESP should return the array directly
+      return res.json();
     })
     .then(data => {
-      outputs = Array.isArray(data) ? data : [];
-      renderOutputs(false); // render without sending back immediately
+      // Accept old array form, or the new object form
+      if (Array.isArray(data)) {
+        // Legacy support: treat as LED outputs only
+        outputs = { led_outputs: data, dmx_outputs: [] };
+      } else if (data && typeof data === 'object') {
+        outputs = {
+          led_outputs: data.led_outputs || [],
+          dmx_outputs: data.dmx_outputs || []
+        };
+      } else {
+        outputs = { led_outputs: [], dmx_outputs: [] };
+      }
+      renderOutputs(false);
     })
     .catch(err => {
       console.error("Error fetching segments from ESP:", err);
-      outputs = [];
+      outputs = { led_outputs: [], dmx_outputs: [] };
       renderOutputs(false);
     });
 }
 
 document.addEventListener("DOMContentLoaded", initOutputs);
 
+// --- Send updated data to ESP ---
 let sending = false;
 let sendPending = false;
 
 function sendToESP() {
   if (sending) {
-    sendPending = true; // mark that we need to send again
+    sendPending = true;
     return;
   }
-
   sending = true;
-  fetch('/segments_update', { // replace with your ESP endpoint
+  fetch('/segments_update', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(outputs)
@@ -242,107 +231,58 @@ function sendToESP() {
     sending = false;
     if (sendPending) {
       sendPending = false;
-      sendToESP(); // send latest state once more
+      sendToESP();
     }
   });
 }
 
-
-function attachChangeHandler(input, callback) {
-  const eventType = (input.type === "checkbox" || input.type === "radio") ? "change" : "input";
-  input.addEventListener(eventType, callback);
-}
-
-function renderOutputs() {
+// --- Render Outputs ---
+function renderOutputs(send = true) {
   const outputsDiv = document.getElementById("outputs");
   outputsDiv.innerHTML = "";
-  outputs.forEach((output, oi) => {
+
+  // --- LED OUTPUTS ---
+  outputs.led_outputs.forEach((output, oi) => {
     const outputDiv = document.createElement("div");
-    outputDiv.className = "output";	
-	outputDiv.innerHTML = `
-	  <div class="output-header" style="display:flex; gap:1rem; align-items:center; margin-bottom:0.5rem;">
-		<label style="flex:1;">
-		  Name:
-		  <input type="text" value="${output.name}" 
-			oninput="outputs[${oi}].name=this.value">
-		</label>
-		<label style="width:100px;">
-		  Pin:
-		  <input type="number" min="0" value="${output.pin}" 
-			oninput="outputs[${oi}].pin=parseInt(this.value)">
-		</label>
-		<button class="delete-btn" onclick="deleteOutput(${oi})">✖</button>
-	  </div>
-	`;
-	
+    outputDiv.className = "output";
+    outputDiv.innerHTML = `
+      <div class="output-header" style="display:flex; gap:1rem; align-items:center; margin-bottom:0.5rem;">
+        <label style="flex:1;">
+          Name:
+          <input type="text" value="${output.name}" oninput="outputs.led_outputs[${oi}].name=this.value;sendToESP();">
+        </label>
+        <label style="width:100px;">Pin:
+          <input type="number" min="0" value="${output.pin}" oninput="outputs.led_outputs[${oi}].pin=parseInt(this.value);sendToESP();">
+        </label>
+        <button class="delete-btn" onclick="deleteLEDOutput(${oi})">✖</button>
+      </div>
+    `;
+    // segments
     output.segments.forEach((seg, si) => {
       const segCard = document.createElement("div");
       segCard.className = "segment-card";
-      segCard.draggable = true;
-      segCard.dataset.outputIndex = oi;
-      segCard.dataset.segmentIndex = si;
-
       segCard.innerHTML = `
         <div class="segment-header">
           <span class="drag-handle">☰</span>
-          <input type="text" value="${seg.name}" oninput="outputs[${oi}].segments[${si}].name=this.value">
+          <input type="text" value="${seg.name}" 
+            oninput="outputs.led_outputs[${oi}].segments[${si}].name=this.value;sendToESP();">
           <button class="delete-btn" onclick="deleteSegment(${oi},${si})">✖</button>
         </div>
         <div class="segment-body">
-          <div class="flags">
-            <label><input type="checkbox" ${seg.enabled ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].enabled=this.checked">Enabled</label>
-            <label><input type="checkbox" ${seg.reverse ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].reverse=this.checked">Reverse</label>
-            <label><input type="checkbox" ${seg.mirror ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].mirror=this.checked">Mirror</label>
-			<label><input type="checkbox" ${seg.testout ? "checked" : ""} onchange="outputs[${oi}].segments[${si}].testout=this.checked">Test Output</label>
-          </div>
-          <label>Width: <input type="number" value="${seg.width}" min="1" oninput="outputs[${oi}].segments[${si}].width=parseInt(this.value)"></label>
-          <label>Height: <input type="number" value="${seg.height}" min="1" oninput="outputs[${oi}].segments[${si}].height=parseInt(this.value)"></label>         
-		  <label>Count: <input type="number" value="${seg.count}" min="1" oninput="outputs[${oi}].segments[${si}].count=parseInt(this.value)"></label>
-          <label>Brightness: <input type="range" min="0" max="255" value="${seg.brightness}" oninput="outputs[${oi}].segments[${si}].brightness=parseInt(this.value)"></label>
-          <label>Color: <input type="color" value="${seg.color}" oninput="outputs[${oi}].segments[${si}].color=this.value"></label>
-		  <label>Group: <input type="text" value="${seg.group}" oninput="outputs[${oi}].segments[${si}].group=this.value"></label>
-        </div>
+          <label>Width: <input type="number" value="${seg.width}" min="1" 
+            oninput="outputs.led_outputs[${oi}].segments[${si}].width=parseInt(this.value);sendToESP();"></label>
+          <label>Height: <input type="number" value="${seg.height}" min="1" 
+            oninput="outputs.led_outputs[${oi}].segments[${si}].height=parseInt(this.value);sendToESP();"></label>
+          <label>Count: <input type="number" value="${seg.count}" min="1" 
+            oninput="outputs.led_outputs[${oi}].segments[${si}].count=parseInt(this.value);sendToESP();"></label>
+          <label>Brightness: <input type="range" min="0" max="255" value="${seg.brightness}" 
+            oninput="outputs.led_outputs[${oi}].segments[${si}].brightness=parseInt(this.value);sendToESP();"></label>
+          <label>Color: <input type="color" value="${seg.color}" 
+            oninput="outputs.led_outputs[${oi}].segments[${si}].color=this.value;sendToESP();"></label>
+		  <label>Group: <input type="text" value="${seg.group}"
+		    oninput="outputs.led_outputs[${oi}].segments[${si}].group=this.value;sendToESP();"></label>
+		</div>
       `;
-
-		segCard.querySelectorAll("input").forEach(input => {
-		  attachChangeHandler(input, () => {
-			const key = input.name; // must match the property in outputs[oi].segments[si]
-			if (input.type === "checkbox") {
-			  outputs[oi].segments[si][key] = input.checked;
-			} else if (input.type === "number") {
-			  outputs[oi].segments[si][key] = parseInt(input.value);
-			} else {
-			  outputs[oi].segments[si][key] = input.value;
-			}
-			sendToESP();
-		  });
-		});
-
-      const dragHandle = segCard.querySelector(".drag-handle");
-      dragHandle.addEventListener("mousedown", () => {
-        segCard.draggable = true;
-      });
-      segCard.addEventListener("dragstart", e => {
-		console.log(e.target.closest);
-		if (!e.target.closest('.drag-handle')) {
-			e.preventDefault();
-			return;
-		  }
-        e.dataTransfer.setData("text/plain", JSON.stringify({ oi, si }));
-      });
-      segCard.addEventListener("dragover", e => e.preventDefault());
-      segCard.addEventListener("drop", e => {
-        e.preventDefault();
-        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-        if (data.oi === oi) {
-          const moved = outputs[oi].segments.splice(data.si, 1)[0];
-          let dropIndex = si;
-          if (data.si < si) dropIndex++;
-          outputs[oi].segments.splice(dropIndex, 0, moved);
-          renderOutputs();
-        }
-      });
-
       outputDiv.appendChild(segCard);
     });
     const addBtn = document.createElement("button");
@@ -352,7 +292,77 @@ function renderOutputs() {
     outputsDiv.appendChild(outputDiv);
   });
 
-  sendToESP();
-  console.log("Update!");
+  // --- DMX OUTPUTS ---
+  outputs.dmx_outputs.forEach((universe, ui) => {
+    const universeDiv = document.createElement("div");
+    universeDiv.className = "output";
+    universeDiv.innerHTML = `
+      <div class="output-header" style="display:flex; gap:1rem; align-items:center; margin-bottom:0.5rem;">
+        <label style="flex:1;">
+          Name:
+          <input type="text" value="${universe.name}" oninput="outputs.dmx_outputs[${ui}].name=this.value;sendToESP();">
+        </label>
+        <label style="width:80px;">TX Pin:
+          <input type="number" min="0" value="${universe.txPin}" oninput="outputs.dmx_outputs[${ui}].txPin=parseInt(this.value);sendToESP();">
+        </label>
+        <label style="width:80px;">RX Pin:
+          <input type="number" min="0" value="${universe.rxPin}" oninput="outputs.dmx_outputs[${ui}].rxPin=parseInt(this.value);sendToESP();">
+        </label>
+        <label style="width:80px;">RTS Pin:
+          <input type="number" min="0" value="${universe.rtsPin}" oninput="outputs.dmx_outputs[${ui}].rtsPin=parseInt(this.value);sendToESP();">
+        </label>
+        <button class="delete-btn" onclick="deleteDMXOutput(${ui})">✖</button>
+      </div>
+    `;
+    // fixtures
+    universe.fixtures.forEach((fix, fi) => {
+      const fixCard = document.createElement("div");
+      fixCard.className = "segment-card";
+      fixCard.innerHTML = `
+        <div class="segment-header">
+          <span class="drag-handle">☰</span>
+          <input type="text" value="${fix.name}" 
+            oninput="outputs.dmx_outputs[${ui}].fixtures[${fi}].name=this.value;sendToESP();">
+          <button class="delete-btn" onclick="deleteFixture(${ui},${fi})">✖</button>
+        </div>
+        <div class="segment-body">
+          <label>Fixture Type:
+            <select onchange="outputs.dmx_outputs[${ui}].fixtures[${fi}].fixtureType=this.value;sendToESP();">
+              ${DMX_FIXTURE_TYPES.map(f => 
+                `<option value="${f.id}" ${fix.fixtureType===f.id?'selected':''}>${f.name}</option>`).join('')}
+            </select>
+          </label>
+          <label>DMX Address:
+            <input type="number" value="${fix.address}" min="1" max="512" 
+              oninput="outputs.dmx_outputs[${ui}].fixtures[${fi}].address=parseInt(this.value);sendToESP();">
+          </label>
+          <label>Count:
+            <input type="number" value="${fix.count}" min="1" 
+              oninput="outputs.dmx_outputs[${ui}].fixtures[${fi}].count=parseInt(this.value);sendToESP();">
+          </label>
+          <label>Width:
+            <input type="number" value="${fix.width}" min="1" 
+              oninput="outputs.dmx_outputs[${ui}].fixtures[${fi}].width=parseInt(this.value);sendToESP();">
+          </label>
+          <label>Height:
+            <input type="number" value="${fix.height}" min="1" 
+              oninput="outputs.dmx_outputs[${ui}].fixtures[${fi}].height=parseInt(this.value);sendToESP();">
+          </label>
+          <div class="flags">
+            <label><input type="checkbox" ${fix.enabled ? "checked" : ""} 
+              onchange="outputs.dmx_outputs[${ui}].fixtures[${fi}].enabled=this.checked;sendToESP();">Enabled</label>
+          </div>
+        </div>
+      `;
+      universeDiv.appendChild(fixCard);
+    });
+    const addBtn = document.createElement("button");
+    addBtn.textContent = "+ Add Fixture";
+    addBtn.onclick = () => addFixture(ui);
+    universeDiv.appendChild(addBtn);
+    outputsDiv.appendChild(universeDiv);
+  });
+
+  if (send) sendToESP();
 }
 </script>

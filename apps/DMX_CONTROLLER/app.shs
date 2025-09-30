@@ -1,0 +1,126 @@
+
+
+mic = i2s_mic();
+	
+//SCK, WS, SD, SamplebufferCount
+mic.begin(36, 32, 33, 512);
+
+drv = dmx_driver();
+drv.init(3,6);
+pinMode(2, OUTPUT);
+digitalWrite(2,1);
+
+frac(num)
+{
+	return num - int(num);
+}
+
+//This class is important to handle rollovers
+//Aswell as floating point precision by wrapping the max values.
+class fx_time = 
+{
+	total_time = 0;
+	last_time = -1;
+	
+	current_time = 0;
+	current_delta = 0;
+	
+	update()
+	{
+		current_millis = millis();
+		
+		if(last_time == -1)
+			last_time = current_millis;
+		if(current_millis < last_time)
+			last_time = current_millis;
+		
+		delta = current_millis - last_time;
+		
+		last_time = current_millis;
+		
+		total_time += delta;
+		
+		total_time = mod(total_time, 4000 * 1000); //Wrap around 4 million ms (~1 hrs), makes speedmult safe for up to 4x
+		
+		current_time = (total_time / 1000.0);
+		current_delta = (delta / 1000.0);
+	}
+	
+	get_time(speed_mult = 1.0)
+	{
+		//TODO: Add webui option to disable this...
+		return mic.beat() * speed_mult;
+		
+		//return current_time * speed_mult;
+	}
+	
+	get_delta(speed_mult = 1.0)
+	{
+		update();
+		return current_delta * speed_mult;
+	}
+	
+	get_frac(speed_mult)
+	{
+		return frac(get_time(speed_mult));
+	}
+};
+
+global TimeControl = fx_time();
+
+set_led(vv)
+{
+	//change this to correct color later
+	//Red 255
+	//Green 140
+	//Blue 0
+	//Red Green Blue
+	
+	drv.set_channel(1, vv * 146.0);
+	drv.set_channel(2, vv * 12.0);
+	drv.set_channel(3, vv * 0.0);
+
+	drv.set_channel(4, vv * 146.0);
+	drv.set_channel(5, vv * 12.0);
+	drv.set_channel(6, vv * 0.0);
+	
+	drv.set_channel(7, vv * 146.0);
+	drv.set_channel(8, vv * 12.0);
+	drv.set_channel(9, vv * 0.0);
+	
+	
+	drv.set_channel(32, vv * 146.0);
+	drv.set_channel(33, vv * 12.0);
+	drv.set_channel(34, vv * 0.0);
+
+	drv.set_channel(35, vv * 146.0);
+	drv.set_channel(36, vv * 12.0);
+	drv.set_channel(37, vv * 0.0);
+	
+	drv.set_channel(38, vv * 146.0);
+	drv.set_channel(39, vv * 12.0);
+	drv.set_channel(40, vv * 0.0);
+}
+
+loop_test()
+{
+	v = 0;
+	for(1)
+	{
+		set_led(mic.peak_band(1));
+		//set_led(1.0 - TimeControl.get_frac(1.0));
+		//set_led(1.0);
+		sleep(25);
+	}
+}
+
+main()
+{
+	//print("hello from main!");
+	
+	print("---STARTING DMX DRIVER---");
+	
+	~loop_test();
+	
+	return;
+}

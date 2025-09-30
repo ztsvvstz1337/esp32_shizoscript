@@ -9,7 +9,8 @@ global default_config = [
 	password 	= "admin",
 	ip 			= "2.0.0.10",
 	gateway 	= "2.0.0.1",
-	netmask 	= "255.255.255.0"
+	netmask 	= "255.255.255.0",
+	dhcpserver = 0
 ];
 
 load_config()
@@ -49,6 +50,8 @@ if(!esp32_conf_ip(default_config.ip))
 if(!esp32_conf_gateway(default_config.gateway))
 	error("Cannot set property!");
 if(!esp32_conf_netmask(default_config.netmask))
+	error("Cannot set property!");
+if(!esp32_conf_dhcp_server(default_config.dhcpserver))
 	error("Cannot set property!");
 
 load_wlans()

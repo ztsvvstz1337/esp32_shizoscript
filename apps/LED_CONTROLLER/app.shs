@@ -6,17 +6,17 @@ global driver = 0;
 global led_segments = from_json_string(string(fileread("/static/segments.json")));
 global led_segments_groups = 0;
 
+global dmx_fixtures = from_json_string(string(fileread("/static/dmx_fixtures.json")));
+
 global group_anims = from_json_string(string(fileread("/static/effects.json")));
 
 
 //First ever init
 if(led_segments:count() == 0)
 {
-	led_segments = [
-		[name="Output 1", pin=21, segments=[[name="Segment 1", width=10,count=1,color="#ff0000",brightness=100,enabled=1,group="Default"]]]
-	];
-	
-	print(led_segments);
+	//led_segments = [
+	//	[name="Output 1", pin=21, segments=[[name="Segment 1", width=10,count=1,color="#000000",brightness=255,enabled=1,group="Default"]]]
+	//];
 }
 
 get_color(str)
@@ -170,6 +170,7 @@ update_segments()
 	
 	led_segments_groups = 0;
 	
+	
 	output_id = 0;
 	for(#it :: led_segments)
 	{
@@ -205,6 +206,15 @@ update_segments()
 	
 }
 
+update_fixtures()
+{
+	output_id = 0;
+	for(#it :: led_segments)
+	{
+		
+	}
+}
+
 webui.add_site("/segments", ()
 {	
 	page = webui.add_html("/data/segment_editor.html");
@@ -219,22 +229,22 @@ webui.add_post("/segments_update", (post_data)
 	if(segments_json:count() == 0)
 		return;
 
-	filewrite("/static/segments.json", to_json_string(segments_json));
+	filewrite("/static/segments.json", to_json_string(segments_json.led_outputs));
+	filewrite("/static/dmx_fixtures.json", to_json_string(segments_json.dmx_outputs));
 	
-	//print(segments_json);
-	
-	led_segments = segments_json;
+	led_segments = segments_json.led_outputs;
+	dmx_fixtures = segments_json.dmx_outputs;
 	
 	update_segments();
 });
 
 webui.add_json("/segments_get", (post_data)
 {	
-	return led_segments;
+	return [led_outputs=led_segments, dmx_outputs=dmx_fixtures];
 });
 
-
-webui.add_header("SEGMENTS", "/segments");
+webui.add_header("LEDS", "/segments");
+webui.add_header("DMX", "/segments");
 
 init_driver();
 update_segments();

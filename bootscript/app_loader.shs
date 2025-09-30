@@ -24,6 +24,8 @@ shizonet.on_get("check_version", (data, dev)
 {
 	version_file_local = "/version.txt";
 	ver = string(fileread(version_file_local));
+	if(ver:empty_str())
+		ver = "0";
 	return ver;
 });
 shizonet.on_get("check_firm_version", (data, dev)
@@ -31,6 +33,8 @@ shizonet.on_get("check_firm_version", (data, dev)
 	print("getting firmware version...");
 	version_file_local = "/firm_version.txt";
 	ver = string(fileread(version_file_local));
+	if(ver:empty_str())
+		ver = "0";
 	print("ver: " + ver);
 	return ver;
 });

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ESP32 File Browser + Code Editor (Dark)</title>
+  <style>
+    :root{
+      --bg:#0b0f14; --panel:#0f1419; --muted:#9aa6b2;
+      --accent:#6ee7b7; --danger:#ff6b6b;
+      --radius:12px;
+    }
+    html,body{height:100%;margin:0;background:#0b0f14;color:#e6eef5;font-family:sans-serif}
+    .app{display:flex;height:100vh;gap:16px;padding:16px}
+    .side{width:280px;background:#0f1419;border-radius:var(--radius);padding:12px;display:flex;flex-direction:column}
+    .main{flex:1;display:flex;flex-direction:column}
+    .tree{flex:1;overflow:auto;margin-top:10px}
+    .node{padding:6px 8px;border-radius:6px;cursor:pointer;color:var(--muted)}
+    .node:hover{background:rgba(255,255,255,0.05)}
+    .node.selected{background:rgba(110,231,183,0.1);color:var(--accent)}
+    .editor-panel{flex:1;display:flex;flex-direction:column;background:#0f1419;border-radius:var(--radius)}
+    .editor-header{padding:8px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.05)}
+    #editor{flex:1}
+    .status{padding:6px 12px;font-size:12px;color:var(--muted);border-top:1px solid rgba(255,255,255,0.05)}
+    button{background:#1a222c;border:none;color:#e6eef5;padding:6px 10px;border-radius:6px;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,var(--accent),#5bd6ff);color:#021115}
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div><button id="refreshBtn">Refresh</button> <button id="newBtn">New</button> <button id="uploadBtn">Upload</button></div>
+    <div class="tree" id="fileTree"></div>
+    <div><button id="deleteBtn">Delete</button> <button id="downloadBtn">Download</button></div>
+  </aside>
+
+  <main class="main">
+    <div class="editor-panel">
+      <div class="editor-header">
+        <div id="filename">(no file)</div>
+        <div style="flex:1"></div>
+        <button id="saveBtn" class="primary">Save</button>
+      </div>
+      <div id="editor">Select a file to edit...</div>
+      <div class="status" id="statusMsg">Idle</div>
+    </div>
+  </main>
+</div>
+
+<!-- ACE Editor (place ace.js locally in /lib/ace.js) -->
+<script src="/ui/ace.js"></script>
+<script>
+const endpoints = {
+  list: '/api/list',
+  file: '/api/file',
+  save: '/api/save',
+  delete: '/api/delete',
+  upload: '/api/upload'
+};
+
+let state = { selected:null, content:'' };
+const els = {
+  fileTree: document.getElementById('fileTree'),
+  filename: document.getElementById('filename'),
+  statusMsg: document.getElementById('statusMsg')
+};
+
+// setup Ace
+const editor = ace.edit("editor");
+editor.setTheme("ace/theme/monokai");
+editor.session.setMode("ace/mode/c_cpp");
+editor.setShowPrintMargin(false);
+
+function setStatus(s){ els.statusMsg.textContent = s; }
+
+async function apiGet(url){ const r=await fetch(url); return r.json(); }
+async function apiText(url){ const r=await fetch(url); return r.text(); }
+async function apiPost(url, body){ const r=await fetch(url,{method:'POST',body}); return r.json(); }
+
+function renderTree(){
+  els.fileTree.innerHTML='';
+  (state.tree.children||state.tree).forEach(item=>{
+    const el=document.createElement('div');
+    el.className='node';
+    el.textContent=item.name;
+    el.dataset.path=item.path||item.name;
+    el.onclick=()=>openFile(el.dataset.path, el);
+    els.fileTree.appendChild(el);
+  });
+}
+
+async function refresh(){
+  try{ const t=await apiGet(endpoints.list); state.tree=t; renderTree(); setStatus('File list loaded'); }catch(e){ setStatus('Error loading files'); }
+}
+
+async function openFile(path, node){
+  try{
+    const q=new URL(endpoints.file,location.origin); q.searchParams.set('path',path);
+    const resp=await apiGet(q);
+    const content=resp.content||'';
+    state.selected=path;
+    editor.setValue(content,-1);
+    els.filename.textContent=path.split('/').pop();
+    document.querySelectorAll('.node').forEach(n=>n.classList.remove('selected'));
+    node.classList.add('selected');
+    setStatus('Loaded '+path);
+  }catch(e){ setStatus('Failed to load file'); }
+}
+
+async function saveFile(){
+  if(!state.selected){ setStatus('No file'); return; }
+  try{
+    const q=new URL(endpoints.save,location.origin); q.searchParams.set('path',state.selected);
+    const body=new Blob([editor.getValue()],{type:'text/plain'});
+    await fetch(q,{method:'POST',body});
+    setStatus('Saved '+state.selected);
+  }catch(e){ setStatus('Save failed'); }
+}
+
+async function deleteFile(){
+  if(!state.selected) return;
+  if(!confirm('Delete '+state.selected+'?')) return;
+  const q=new URL(endpoints.delete,location.origin); q.searchParams.set('path',state.selected);
+  await apiPost(q);
+  refresh();
+  editor.setValue('',-1);
+  els.filename.textContent='(no file)';
+  setStatus('Deleted');
+}
+
+function downloadFile(){
+  if(!state.selected) return;
+  const a=document.createElement('a');
+  const blob=new Blob([editor.getValue()],{type:'text/plain'});
+  a.href=URL.createObjectURL(blob);
+  a.download=state.selected.split('/').pop();
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function newFile(){
+  const name=prompt('New file path','/newfile.txt');
+  if(!name) return;
+  const q=new URL(endpoints.save,location.origin); q.searchParams.set('path',name);
+  fetch(q,{method:'POST',body:''}).then(()=>refresh());
+}
+
+function doUpload(){
+  const inp=document.createElement('input');
+  inp.type='file';
+  inp.onchange=async()=>{
+    const f=inp.files[0]; if(!f) return;
+    const fd=new FormData(); fd.append('file',f);
+    await fetch(endpoints.upload,{method:'POST',body:fd});
+    refresh();
+  };
+  inp.click();
+}
+
+// buttons
+document.getElementById('refreshBtn').onclick=refresh;
+document.getElementById('saveBtn').onclick=saveFile;
+document.getElementById('deleteBtn').onclick=deleteFile;
+document.getElementById('downloadBtn').onclick=downloadFile;
+document.getElementById('newBtn').onclick=newFile;
+document.getElementById('uploadBtn').onclick=doUpload;
+
+// Ctrl+S
+window.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='s'){ e.preventDefault(); saveFile(); } });
+
+refresh();
+</script>
+</body>
+</html>
