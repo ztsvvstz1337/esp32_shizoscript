@@ -10,17 +10,52 @@
       --accent:#6ee7b7; --danger:#ff6b6b;
       --radius:12px;
     }
-    html,body{height:100%;margin:0;background:#0b0f14;color:#e6eef5;font-family:sans-serif}
-    .app{display:flex;height:100vh;gap:16px;padding:16px}
-    .side{width:280px;background:#0f1419;border-radius:var(--radius);padding:12px;display:flex;flex-direction:column}
+    html,body{height:100%;margin:0;background:var(--bg);color:#e6eef5;font-family:sans-serif}
+    .app{display:flex;height:100vh;overflow:hidden}
+
+    /* Sidebar floats above */
+    .side {
+      position:absolute;
+      top:0; left:0; bottom:0;
+      width:280px;
+      background:var(--panel);
+      border-radius:0 var(--radius) var(--radius) 0;
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      transform:translateX(-100%);
+      transition:transform 0.3s ease;
+      z-index:20;
+    }
+    .side.open { transform:translateX(0); }
+
+    /* Toggle button floats with sidebar */
+    #toggleSidebar {
+      position:absolute;
+      top:16px;
+      left:0;
+      width:28px; height:28px;
+      background:var(--accent);
+      color:#021115;
+      border:none;
+      border-radius:0 var(--radius) var(--radius) 0;
+      cursor:pointer;
+      z-index:21;
+      font-weight:bold;
+    }
+    #toggleSidebar.hidden { left:-40px; } /* move out when sidebar closed */
+
     .main{flex:1;display:flex;flex-direction:column}
+
     .tree{flex:1;overflow:auto;margin-top:10px}
     .node{padding:6px 8px;border-radius:6px;cursor:pointer;color:var(--muted)}
     .node:hover{background:rgba(255,255,255,0.05)}
     .node.selected{background:rgba(110,231,183,0.1);color:var(--accent)}
-    .editor-panel{flex:1;display:flex;flex-direction:column;background:#0f1419;border-radius:var(--radius)}
+
+    .editor-panel{flex:1;display:flex;flex-direction:column;background:var(--panel);border-radius:var(--radius)}
     .editor-header{padding:8px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.05)}
-    #editor{flex:1}
+    .filename{margin-left: 30px;}
+	#editor{flex:1;min-height:0}
     .status{padding:6px 12px;font-size:12px;color:var(--muted);border-top:1px solid rgba(255,255,255,0.05)}
     button{background:#1a222c;border:none;color:#e6eef5;padding:6px 10px;border-radius:6px;cursor:pointer}
     button.primary{background:linear-gradient(90deg,var(--accent),#5bd6ff);color:#021115}
@@ -28,12 +63,17 @@
 </head>
 <body>
 <div class="app">
-  <aside class="side">
+  <!-- Sidebar toggle -->
+  <button id="toggleSidebar">&#9776;</button>
+
+  <!-- Sidebar overlay -->
+  <aside class="side" id="fileSidebar">
     <div><button id="refreshBtn">Refresh</button> <button id="newBtn">New</button> <button id="uploadBtn">Upload</button></div>
     <div class="tree" id="fileTree"></div>
     <div><button id="deleteBtn">Delete</button> <button id="downloadBtn">Download</button></div>
   </aside>
 
+  <!-- Main editor -->
   <main class="main">
     <div class="editor-panel">
       <div class="editor-header">
@@ -47,18 +87,18 @@
   </main>
 </div>
 
-<!-- ACE Editor (place ace.js locally in /lib/ace.js) -->
+<!-- ACE Editor (place ace.js locally in /libs/ace.js) -->
 <script src="/libs/ace.js"></script>
 <script>
 const endpoints = {
-  list: '/api/list',
-  file: '/api/file',
-  save: '/api/save',
-  delete: '/api/delete',
-  upload: '/api/upload'
+  list: '/fb/list',
+  file: '/fb/file',
+  save: '/fb/save',
+  delete: '/fb/delete',
+  upload: '/fb/upload'
 };
 
-let state = { selected:null, content:'' };
+let state = { selected:null, tree:[] };
 const els = {
   fileTree: document.getElementById('fileTree'),
   filename: document.getElementById('filename'),
@@ -69,35 +109,68 @@ const els = {
 const editor = ace.edit("editor");
 editor.setTheme("ace/theme/monokai");
 editor.session.setMode("ace/mode/c_cpp");
-editor.setShowPrintMargin(false);
+editor.setOptions({
+  fontFamily: "monospace",
+  fontSize: "14px",
+  showPrintMargin: false
+});
 
 function setStatus(s){ els.statusMsg.textContent = s; }
 
-async function apiGet(url){ const r=await fetch(url); return r.json(); }
-async function apiText(url){ const r=await fetch(url); return r.text(); }
-async function apiPost(url, body){ const r=await fetch(url,{method:'POST',body}); return r.json(); }
+// Helpers
+async function apiPostJSON(url,data){ 
+  const r=await fetch(url,{method:'POST',body:JSON.stringify(data)}); 
+  return r.json(); 
+}
+async function apiPostText(url,data){
+  const r=await fetch(url,{method:'POST',body:JSON.stringify(data)});
+  return r.text();
+}
 
-function renderTree(){
-  els.fileTree.innerHTML='';
-  (state.tree.children||state.tree).forEach(item=>{
+// Build tree from flat paths
+function buildTree(paths){
+  const root={children:{}};
+  paths.forEach(p=>{
+    const parts=p.split('/');
+    let cur=root;
+    parts.forEach((part,i)=>{
+      if(!cur.children[part]) cur.children[part]={children:{},path:parts.slice(0,i+1).join('/')};
+      cur=cur.children[part];
+    });
+  });
+  return root;
+}
+function renderTree(node=state.tree,container=els.fileTree){
+  container.innerHTML='';
+  Object.keys(node.children).forEach(name=>{
+    const child=node.children[name];
     const el=document.createElement('div');
     el.className='node';
-    el.textContent=item.name;
-    el.dataset.path=item.path||item.name;
-    el.onclick=()=>openFile(el.dataset.path, el);
-    els.fileTree.appendChild(el);
+    el.textContent=name;
+    el.onclick=()=>openFile(child.path,el);
+    container.appendChild(el);
+    if(Object.keys(child.children).length){
+      const sub=document.createElement('div');
+      sub.style.marginLeft='16px';
+      container.appendChild(sub);
+      renderTree(child,sub);
+    }
   });
 }
 
+// API calls
 async function refresh(){
-  try{ const t=await apiGet(endpoints.list); state.tree=t; renderTree(); setStatus('File list loaded'); }catch(e){ setStatus('Error loading files'); }
+  try{ 
+    const files=await apiPostJSON(endpoints.list,{});
+    state.tree=buildTree(files);
+    renderTree(state.tree);
+    setStatus('File list loaded');
+  }catch(e){ setStatus('Error loading files'); }
 }
 
-async function openFile(path, node){
+async function openFile(path,node){
   try{
-    const q=new URL(endpoints.file,location.origin); q.searchParams.set('path',path);
-    const resp=await apiGet(q);
-    const content=resp.content||'';
+    const content=await apiPostText(endpoints.file,{path});
     state.selected=path;
     editor.setValue(content,-1);
     els.filename.textContent=path.split('/').pop();
@@ -110,9 +183,7 @@ async function openFile(path, node){
 async function saveFile(){
   if(!state.selected){ setStatus('No file'); return; }
   try{
-    const q=new URL(endpoints.save,location.origin); q.searchParams.set('path',state.selected);
-    const body=new Blob([editor.getValue()],{type:'text/plain'});
-    await fetch(q,{method:'POST',body});
+    await fetch(endpoints.save,{method:'POST',body:JSON.stringify({path:state.selected,content:editor.getValue()})});
     setStatus('Saved '+state.selected);
   }catch(e){ setStatus('Save failed'); }
 }
@@ -120,8 +191,7 @@ async function saveFile(){
 async function deleteFile(){
   if(!state.selected) return;
   if(!confirm('Delete '+state.selected+'?')) return;
-  const q=new URL(endpoints.delete,location.origin); q.searchParams.set('path',state.selected);
-  await apiPost(q);
+  await apiPostJSON(endpoints.delete,{path:state.selected});
   refresh();
   editor.setValue('',-1);
   els.filename.textContent='(no file)';
@@ -141,8 +211,7 @@ function downloadFile(){
 function newFile(){
   const name=prompt('New file path','/newfile.txt');
   if(!name) return;
-  const q=new URL(endpoints.save,location.origin); q.searchParams.set('path',name);
-  fetch(q,{method:'POST',body:''}).then(()=>refresh());
+  fetch(endpoints.save,{method:'POST',body:JSON.stringify({path:name,content:""})}).then(()=>refresh());
 }
 
 function doUpload(){
@@ -164,6 +233,14 @@ document.getElementById('deleteBtn').onclick=deleteFile;
 document.getElementById('downloadBtn').onclick=downloadFile;
 document.getElementById('newBtn').onclick=newFile;
 document.getElementById('uploadBtn').onclick=doUpload;
+
+// Toggle sidebar
+const toggleBtn=document.getElementById('toggleSidebar');
+const sidebar=document.getElementById('fileSidebar');
+toggleBtn.addEventListener('click',()=>{
+  sidebar.classList.toggle('open');
+  //toggleBtn.classList.toggle('hidden',!sidebar.classList.contains('open'));
+});
 
 // Ctrl+S
 window.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='s'){ e.preventDefault(); saveFile(); } });

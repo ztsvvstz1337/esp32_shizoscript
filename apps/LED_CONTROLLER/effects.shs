@@ -1,6 +1,7 @@
 
 global driver = undefined;
 global mic = undefined;
+global init_fx = 0;
 
 frac(num)
 {
@@ -75,7 +76,7 @@ smoothstep_param(t,  k)
     return (1.0 - k) * linear + k * smooth;
 }
 
-main()
+init_fx = ()
 {
 	print("---INIT FX---");
 	

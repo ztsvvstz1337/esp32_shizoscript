@@ -6,6 +6,7 @@ global header_buttons = [
 	"HOME" = "/home",
 	"SETTINGS" = "/settings",
 	"FILES" = "/filebrowser",
+	"UPDATE" = "/updatemenu",
 ];
 
 templates = [
@@ -374,6 +375,32 @@ webui.add_site("/filebrowser", ()
 {
 	page = webui.add_html("/ui/static/code_editor.html");
 	return page;
+});
+
+webui.add_json("/fb/list", (args)
+{
+	print("file list get.");
+	return fs_list_files("/");
+});
+
+webui.add_json("/fb/file", (args)
+{
+	file_name = from_json_string(args.plain);
+
+	print("file get.");
+	print(file_name.path);
+	return string(fileread(file_name.path));
+});
+
+webui.add_json("/fb/save", (args)
+{
+	file_name = from_json_string(args.plain);
+
+	print("file save.");
+	print(file_name);
+	filewrite(file_name.path, file_name.content);
+	//return string(fileread(file_name.path));
+	return [success=1];
 });
 
 webui.add_not_found((uri)

@@ -54,6 +54,8 @@ get_leds_out_count()
 	return int(max_outs);
 }
 
+global init_fx = undefined;
+
 init_driver()
 {
 	pins = 0;
@@ -79,6 +81,7 @@ init_driver()
 		driver = led_driver(pins, max_output, 3);
 		driver.enable_artnet();
 		driver.show();
+		init_fx();
 	}
 	else
 	{
@@ -98,6 +101,10 @@ webui.on_main_page = ()
 
 update_anims()
 {
+	if(driver == 0)
+		print("driver was not initialized.");
+		return;
+
 	for(i = 0; i < group_anims:count(); i++)
 	{
 		driver.set_effect(group_anims:key(i), group_anims[i].effect);
@@ -151,17 +158,16 @@ update_segments()
 {
 	new_max_leds = get_leds_out_count();
 	
-	if(last_num_outputs == -1)
-		last_num_outputs=led_segments:count();
-	if(last_max_leds == -1)
-		last_max_leds = new_max_leds;
-	
 	if(last_max_leds != new_max_leds || last_num_outputs != led_segments:count())
 	{
 		//Re-init driver...
 		print("---REINIT DRIVER---");
 		init_driver();
 	}
+	
+	if(driver == 0)
+		print("driver was not initialized.");
+		return;
 	
 	last_max_leds = new_max_leds;
 	last_num_outputs = led_segments:count();
@@ -206,14 +212,6 @@ update_segments()
 	
 }
 
-update_fixtures()
-{
-	output_id = 0;
-	for(#it :: led_segments)
-	{
-		
-	}
-}
 
 webui.add_site("/segments", ()
 {	
@@ -224,37 +222,38 @@ webui.add_site("/segments", ()
 
 webui.add_post("/segments_update", (post_data)
 {	
+	print("update segments...");
 	segments_json = from_json_string(post_data.plain);
 
 	if(segments_json:count() == 0)
 		return;
 
-	filewrite("/static/segments.json", to_json_string(segments_json.led_outputs));
-	filewrite("/static/dmx_fixtures.json", to_json_string(segments_json.dmx_outputs));
+	filewrite("/static/segments.json", to_json_string(segments_json));
 	
-	led_segments = segments_json.led_outputs;
-	dmx_fixtures = segments_json.dmx_outputs;
+	//print(segments_json);
+	
+	led_segments = segments_json;
 	
 	update_segments();
 });
 
 webui.add_json("/segments_get", (post_data)
 {	
-	return [led_outputs=led_segments, dmx_outputs=dmx_fixtures];
+	print("get segments...");
+	return led_segments;
 });
 
 webui.add_header("LEDS", "/segments");
-webui.add_header("DMX", "/segments");
-
-init_driver();
-update_segments();
-update_anims();
+webui.add_header("DMX", "/dmx");
 
 main()
 {
-	//print("hello from main!");
-	
 	print("---STARTING LED DRIVER---");
+	
+	update_segments();
+	update_anims();
+	init_driver();
+	//print("hello from main!");
 	
 	return;
 
