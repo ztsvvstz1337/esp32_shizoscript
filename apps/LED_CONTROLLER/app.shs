@@ -94,7 +94,7 @@ init_driver()
 // # MAIN PAGE
 webui.on_main_page = ()
 {
-	page = webui.add_section("Animation & Control");
+	page = webui.add_section("Animation & Control", "You can create different effect groups by changing the 'group' value for each element you want to group.");
 	page += webui.add_html("/data/animation_editor.html");
 	return page;
 };

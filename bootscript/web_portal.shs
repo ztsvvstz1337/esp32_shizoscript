@@ -102,13 +102,13 @@ class WebPortal =
 		return render("page_end");
 	}
 
-	add_section(title)
+	add_section(title, infotext = "")
 	{
 		str = "";
 		if(!closed_last_section)
 			str += render("section_end", 0);
 		if(!title:empty_str())
-			str += render("section_start", [section_title = title]);
+			str += render("section_start", [section_title = title, section_text=infotext]);
 			closed_last_section = 0;
 		return str;
 	}
@@ -216,6 +216,12 @@ class WebPortal =
 			options.checked = "";
 		
 		return add_ctrl("checkbox", name, cb2, options);
+	}
+
+	add_status(label, value)
+	{
+		str = render("control_status", [label=label, value=value]);	
+		return str;
 	}
 
 	//Add header buttons
@@ -374,6 +380,23 @@ webui.add_site("/settings", ()
 webui.add_site("/filebrowser", ()
 {
 	page = webui.add_html("/ui/static/code_editor.html");
+	return page;
+});
+
+webui.add_site("/updatemenu", ()
+{
+	app_config = from_json_string(fileread("app_config.json"));
+	version_file_local = "/version.txt";
+	ver1 = string(fileread(version_file_local));
+	version_file_local = "/firm_version.txt";
+	ver2 = string(fileread(version_file_local));
+	
+	page = webui.add_section("Update Firmware");
+	page += webui.add_status("Current App", app_config.name);
+	page += webui.add_status("Current App Version", app_config.version);
+	page += webui.add_status("Current Bootscript Version", ver1);
+	page += webui.add_status("Current Firmware Version", ver2);
+	
 	return page;
 });
 

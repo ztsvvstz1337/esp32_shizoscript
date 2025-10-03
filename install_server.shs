@@ -194,6 +194,7 @@ create_entry(dev)
 			}
 			
 			dev.send("set_app_config", app.config);
+			dev.send("reboot", 1);
 		}
 	};
 }

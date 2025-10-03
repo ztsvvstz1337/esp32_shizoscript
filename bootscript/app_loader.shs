@@ -155,7 +155,7 @@ download_all()
 	return 1;
 }
 
-check_updates()
+global check_updates()
 {
 	print("Checking firmware...");
 	//First, update firmware
@@ -217,9 +217,10 @@ check_updates()
 }
 
 //Check if we have internet for 5 seconds, if so, check for updates
+//EDIT: todo, do this manually only !!! (or?)
 print("Check for updates...");
-if(has_internet(5000))
-	check_updates();
+//if(has_internet(5000))
+//	check_updates();
 
 print("---LOADING APP---");
 
